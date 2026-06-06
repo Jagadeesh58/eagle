@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Live Tracking{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+{% block page_title %}Live GPS Tracking{% endblock %}
+{% block content %}
+<div class="toolbar">
+    <div class="toolbar-left"></div>
+    <button class="btn btn-outline" onclick="loadMapData()">🔄 Refresh Map</button>
+</div>
+
+<div class="map-wrapper">
+    <div class="map-header">
+        <h3>Coordinator Locations</h3>
+    </div>
+    <div id="map"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+let markers = [];
+let session;
+let myCoords = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    
+    map = L.map('map').setView([20.5937, 78.9629], 5); // India center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    try {
+        const coords = await api('GET', `/users/manager/${session.id}/coordinators`).catch(() => []);
+        myCoords = coords.map(c => c.id);
+        loadMapData();
+    } catch(e) {}
+});
+
+async function loadMapData() {
+    try {
+        const data = await api('GET', '/tracking/all').catch(() => []);
+        
+        // Remove old markers
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        
+        // Filter for my coordinators only
+        const myData = data.filter(d => myCoords.includes(d.coordinator_id));
+        
+        const bounds = L.latLngBounds();
+        
+        myData.forEach(d => {
+            const marker = L.marker([d.latitude, d.longitude]).addTo(map);
+            marker.bindPopup(`<b>Coordinator #${d.coordinator_id}</b><br>Sub Area: #${d.sub_area_id}<br>Recorded: ${formatDateTime(d.recorded_at)}`);
+            markers.push(marker);
+            bounds.extend([d.latitude, d.longitude]);
+        });
+        
+        if (myData.length > 0) {
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        }
+    } catch (e) {
+        showNotification('Failed to load tracking data', 'error');
+    }
+}
+</script>
+{% endblock %}

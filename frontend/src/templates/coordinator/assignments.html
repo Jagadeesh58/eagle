@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}My Assignments{% endblock %}
+{% block page_title %}My Assignments{% endblock %}
+{% block content %}
+<div class="table-container">
+    <table class="data-table" id="myAssignTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Beneficiary ID</th>
+                <th>Sub Area</th>
+                <th>Assigned Date</th>
+                <th>Status</th>
+                <th>Update Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let assignData = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    session = getSession();
+    if (!session) return;
+    loadAssignments();
+});
+
+async function loadAssignments() {
+    try {
+        assignData = await api('GET', `/assignments/coordinator/${session.id}`).catch(() => []);
+        renderTable();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#myAssignTable tbody');
+    if (!assignData.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No assignments found.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = assignData.map(a => `
+        <tr>
+            <td class="cell-id">#${a.id}</td>
+            <td><strong>#${a.beneficiary_id}</strong></td>
+            <td>SubArea #${a.sub_area_id}</td>
+            <td>${formatDate(a.assigned_date)}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td>
+                <select class="form-control" style="width: auto; padding: 4px 8px; height: auto;" onchange="updateStatus(${a.id}, this.value)">
+                    <option value="" disabled selected>Change...</option>
+                    <option value="pending">Pending</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function updateStatus(id, status) {
+    if (!status) return;
+    try {
+        await api('PUT', `/assignments/${id}/status`, { status });
+        showNotification('Assignment status updated to ' + status);
+        loadAssignments();
+    } catch(e) {
+        showNotification(e.message, 'error');
+    }
+}
+</script>
+{% endblock %}

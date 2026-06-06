@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Coordinator Assignments{% endblock %}
+{% block page_title %}Assignments{% endblock %}
+{% block content %}
+<div class="toolbar">
+    <div class="toolbar-left"></div>
+    <button class="btn btn-primary" onclick="openAssignModal()">+ New Assignment</button>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="assignTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Coordinator 2</th>
+                <th>Beneficiary ID</th>
+                <th>Sub Area</th>
+                <th>Assigned Date</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="assignModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>New Assignment</h3>
+            <button class="modal-close" onclick="closeModal('assignModal')">×</button>
+        </div>
+        <form id="assignForm" onsubmit="return saveAssign(event)">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Coordinator 2 <span class="required">*</span></label>
+                        <select id="asCoord" class="form-control" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Beneficiary ID <span class="required">*</span></label>
+                        <input type="number" id="asBen" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sub Area ID <span class="required">*</span></label>
+                        <input type="number" id="asSub" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned Date <span class="required">*</span></label>
+                        <input type="date" id="asDate" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let assignData = [];
+let myCoords = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    
+    try {
+        const coords = await api('GET', `/users/manager/${session.id}/coordinators`).catch(() => []);
+        myCoords = coords.filter(c => c.role === 'coordinator2');
+        const sel = document.getElementById('asCoord');
+        myCoords.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.name} (#${c.id})`;
+            sel.appendChild(opt);
+        });
+    } catch(e) {}
+    
+    loadAssignments();
+});
+
+async function loadAssignments() {
+    try {
+        assignData = await api('GET', `/assignments/manager/${session.id}`).catch(() => []);
+        renderTable();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#assignTable tbody');
+    if (!assignData.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No assignments found.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = assignData.map(a => {
+        const coord = myCoords.find(c => c.id === a.coordinator2_id);
+        return `
+        <tr>
+            <td class="cell-id">#${a.id}</td>
+            <td>${coord ? coord.name : '#'+a.coordinator2_id}</td>
+            <td><strong>#${a.beneficiary_id}</strong></td>
+            <td>SubArea #${a.sub_area_id}</td>
+            <td>${formatDate(a.assigned_date)}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td>
+                <div class="actions">
+                    <button class="btn-icon danger" onclick="deleteAssign(${a.id})">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+function openAssignModal() {
+    document.getElementById('assignForm').reset();
+    document.getElementById('asDate').valueAsDate = new Date();
+    openModal('assignModal');
+}
+
+async function saveAssign(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    
+    try {
+        const payload = {
+            manager_id: session.id,
+            coordinator2_id: parseInt(document.getElementById('asCoord').value),
+            beneficiary_id: parseInt(document.getElementById('asBen').value),
+            sub_area_id: parseInt(document.getElementById('asSub').value),
+            assigned_date: document.getElementById('asDate').value
+        };
+        await api('POST', '/assignments', payload);
+        showNotification('Assignment created');
+        closeModal('assignModal');
+        loadAssignments();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function deleteAssign(id) {
+    if (await confirmAction('Delete this assignment?')) {
+        try {
+            await api('DELETE', `/assignments/${id}`);
+            showNotification('Deleted');
+            loadAssignments();
+        } catch (e) {
+            showNotification(e.message, 'error');
+        }
+    }
+}
+</script>
+{% endblock %}

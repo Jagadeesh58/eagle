@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Add Families{% endblock %}
+{% block page_title %}Register Families{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h3>Add New Family Record</h3>
+    </div>
+    <div class="card-body">
+        <form id="benForm" class="form-row" onsubmit="return saveBen(event)">
+            <div class="form-group">
+                <label>Family Name <span class="required">*</span></label>
+                <input type="text" id="bName" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Sub Area <span class="required">*</span></label>
+                <select id="bSub" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+                <label>Total Family Members <span class="required">*</span></label>
+                <input type="number" id="bMembers" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Annual Income (₹) <span class="required">*</span></label>
+                <input type="number" id="bIncome" class="form-control" required>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <button type="submit" class="btn btn-primary" id="saveBtn">Register Family</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="bensTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Family Name</th>
+                <th>Sub Area</th>
+                <th>Members</th>
+                <th>Annual Income</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let bensData = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    
+    try {
+        const subs = await api('GET', `/subareas/coordinator/${session.id}`).catch(() => []);
+        const sel = document.getElementById('bSub');
+        subs.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.sub_area_name;
+            sel.appendChild(opt);
+        });
+    } catch(e) {}
+    
+    loadBens();
+});
+
+async function loadBens() {
+    try {
+        bensData = await api('GET', `/beneficiaries/collector/${session.id}`).catch(() => []);
+        renderTable();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#bensTable tbody');
+    if (!bensData.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No families registered yet.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = bensData.sort((a,b) => b.id - a.id).map(b => `
+        <tr>
+            <td class="cell-id">#${b.id}</td>
+            <td><strong>${b.family_name}</strong></td>
+            <td>SubArea #${b.sub_area_id}</td>
+            <td>${b.family_members}</td>
+            <td>${formatCurrency(b.annual_income)}</td>
+            <td>${boolBadge(b.is_approved, 'Approved', 'Pending')}</td>
+        </tr>
+    `).join('');
+}
+
+async function saveBen(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    
+    try {
+        await api('POST', '/beneficiaries', {
+            family_name: document.getElementById('bName').value,
+            sub_area_id: parseInt(document.getElementById('bSub').value),
+            family_members: parseInt(document.getElementById('bMembers').value),
+            annual_income: parseFloat(document.getElementById('bIncome').value),
+            collector_id: session.id
+        });
+        showNotification('Family registered successfully');
+        document.getElementById('benForm').reset();
+        loadBens();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Register Family';
+    }
+}
+</script>
+{% endblock %}

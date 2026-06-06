@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Overview{% endblock %}
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card info">
+        <div class="stat-icon">👥</div>
+        <div class="stat-number" id="statUsers">-</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">🗺️</div>
+        <div class="stat-number" id="statAreas">-</div>
+        <div class="stat-label">Total Areas</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon">💰</div>
+        <div class="stat-number" id="statFunds">-</div>
+        <div class="stat-label">Funds Allocated</div>
+    </div>
+    <div class="stat-card primary">
+        <div class="stat-icon">👨‍💼</div>
+        <div class="stat-number" id="statManagers">-</div>
+        <div class="stat-label">Active Managers</div>
+    </div>
+</div>
+
+<div class="card mt-24">
+    <div class="card-header">
+        <h3>Recent Users</h3>
+        <a href="/admin/users" class="btn btn-outline btn-sm">View All</a>
+    </div>
+    <div class="table-container">
+        <table class="data-table" id="recentUsersTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" class="text-center py-4"><div class="spinner"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const [users, areas, funds] = await Promise.all([
+            api('GET', '/users'),
+            api('GET', '/areas'),
+            api('GET', '/funds')
+        ]);
+        
+        document.getElementById('statUsers').textContent = users.length;
+        document.getElementById('statAreas').textContent = areas.length;
+        
+        const totalFunds = funds.reduce((sum, f) => sum + parseFloat(f.total_amount || 0), 0);
+        document.getElementById('statFunds').textContent = formatCurrency(totalFunds);
+        
+        const managers = users.filter(u => u.role === 'manager');
+        document.getElementById('statManagers').textContent = managers.length;
+        
+        const tbody = document.querySelector('#recentUsersTable tbody');
+        const recent = users.sort((a,b) => b.id - a.id).slice(0, 5);
+        
+        if (recent.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No users found.</td></tr>';
+        } else {
+            tbody.innerHTML = recent.map(u => `
+                <tr>
+                    <td class="cell-id">#${u.id}</td>
+                    <td>${u.name}</td>
+                    <td>${roleBadge(u.role)}</td>
+                    <td class="cell-muted">${formatDate(u.created_at)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) {
+        showNotification('Failed to load dashboard data: ' + e.message, 'error');
+    }
+});
+</script>
+{% endblock %}
