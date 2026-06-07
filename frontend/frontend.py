@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -9,7 +8,6 @@ frontend_router = APIRouter(include_in_schema=False)
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-
 def get_session_user(request: Request):
     uid = request.cookies.get("user_id")
     name = request.cookies.get("user_name")
@@ -18,7 +16,6 @@ def get_session_user(request: Request):
     if uid and role:
         return {"id": int(uid), "name": name or "", "role": role, "email": email or ""}
     return None
-
 
 @frontend_router.get("/", response_class=HTMLResponse)
 def login_page(request: Request):

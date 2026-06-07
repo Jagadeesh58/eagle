@@ -16,13 +16,12 @@ class EaglDB:
         self.connection = mysql.connector.connect(
             host     = 'localhost',   # MySQL is running on this machine
             port     = 3306,          # default MySQL port
-            user     = 'root',        # MySQL username
-            password = 'NewPassword@123',        # MySQL password
+            user     = 'eagle_user',        # MySQL username
+            password = '1234',        # MySQL password
             database = 'eagle_db'      # the database we created in schema.sql
         )
         # dictionary=True means rows come back as {column: value} instead of plain tuples
         self.cursor = self.connection.cursor(dictionary=True)
-        self._ensure_admin_users()
 
     # ------------------------------------------------------------
     # THREE HELPER FUNCTIONS used by everything below
@@ -44,20 +43,6 @@ class EaglDB:
         self.cursor.execute(sql, values)
         return self.cursor.fetchall()      # returns a list of rows
 
-    def _ensure_admin_users(self):
-        # Ensure the expected admin credentials exist in the database.
-        # This avoids duplicate entry failures when the server restarts.
-        admin_accounts = [
-            ('Admin User', 'dhanush@gmail.com', 'dhanu123'),
-            ('Admin User', 'dhanushgudivada@gmail.com', 'dhanu123'),
-        ]
-        for name, email, password in admin_accounts:
-            self.run_query(
-                "INSERT IGNORE INTO users (name, email, password, role, manager_id) VALUES (%s, %s, %s, 'admin', NULL)",
-                (name, email, password),
-            )
-
-
     # ============================================================
     # USERS
     # ============================================================
@@ -67,11 +52,6 @@ class EaglDB:
 
     def get_user_by_email(self, email):
         return self.get_one("SELECT * FROM users WHERE email = %s", (email,))
-
-    def is_email_taken(self, email, exclude_id=None):
-        if exclude_id is not None:
-            return self.get_one("SELECT id FROM users WHERE email = %s AND id != %s", (email, exclude_id)) is not None
-        return self.get_one("SELECT id FROM users WHERE email = %s", (email,)) is not None
 
     def get_user_by_id(self, user_id):
         return self.get_one("SELECT * FROM users WHERE id = %s", (user_id,))

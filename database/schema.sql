@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Seed admin credentials so the system can be accessed after database creation.
 INSERT IGNORE INTO users (name, email, password, role, manager_id) VALUES
-('Admin User', 'dhanush@gmail.com', 'dhanu123', 'admin', NULL),
 ('Admin User', 'dhanushgudivada@gmail.com', 'dhanu123', 'admin', NULL);
 
 -- ============================================================
@@ -198,4 +197,3 @@ CREATE TABLE IF NOT EXISTS livestock_delivery (
     FOREIGN KEY (beneficiary_id)  REFERENCES beneficiaries(id),
     FOREIGN KEY (coordinator2_id) REFERENCES users(id)
 );
-

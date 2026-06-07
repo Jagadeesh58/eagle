@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .backend import backend_router
+from backend import backend_router
 
 app = FastAPI(
     title="EAGL API",

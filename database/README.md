@@ -8,7 +8,14 @@ This folder stores the MySQL database schema for the EAGL system.
 
 1. Ensure MySQL is running and you have a user with permission to create users and databases.
 
-2. Import the schema directly:
+2. Import the schema directly from the `database` folder:
+
+```bash
+cd database
+mysql -u root -p < schema.sql
+```
+
+If you run the command from the repository root instead, use:
 
 ```bash
 mysql -u root -p < database/schema.sql
@@ -19,6 +26,8 @@ mysql -u root -p < database/schema.sql
 - `eagle_db`
 - MySQL user `eagle_user`@`localhost` with password `1234`
 - Tables such as `users`, `areas`, `funds`, `sub_areas`, `attendance`, `beneficiaries`, `eligible_families`, `coordinator_live_tracking`, `coordinator2_assignments`, and `livestock_delivery`
+- Seed admin user credentials:
+  - `dhanushgudivada@gmail.com` / `dhanu123`
 
 4. Configure your backend to connect to MySQL using:
 
