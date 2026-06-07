@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
         const coords = await api('GET', `/users/manager/${session.id}/coordinators`).catch(() => []);
-        myCoords = coords.filter(c => c.role === 'coordinator2');
+        myCoords = coords.filter(c => c.role === 'delivery_coordinator');
         const sel = document.getElementById('asCoord');
         myCoords.forEach(c => {
             const opt = document.createElement('option');

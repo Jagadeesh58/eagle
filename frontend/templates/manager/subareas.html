@@ -83,7 +83,7 @@ async function loadDependencies() {
             api('GET', `/users/manager/${session.id}/coordinators`).catch(() => [])
         ]);
         myAreas = areas;
-        myCoords = coords.filter(c => c.role === 'coordinator1');
+        myCoords = coords.filter(c => c.role === 'field_coordinator');
         
         const areaSel = document.getElementById('saArea');
         myAreas.forEach(a => {

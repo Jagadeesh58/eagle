@@ -3,8 +3,8 @@
 {% block page_title %}Overview{% endblock %}
 {% block content %}
 
-{% if user.role == 'coordinator1' %}
-<!-- Coordinator 1 (Field) Stats -->
+{% if user.role == 'field_coordinator' %}
+<!-- Field Coordinator (Field) Stats -->
 <div class="stats-grid">
     <div class="stat-card info">
         <div class="stat-icon">📍</div>
@@ -24,8 +24,8 @@
 </div>
 {% endif %}
 
-{% if user.role == 'coordinator2' %}
-<!-- Coordinator 2 (Delivery) Stats -->
+{% if user.role == 'delivery_coordinator' %}
+<!-- Delivery Coordinator (Delivery) Stats -->
 <div class="stats-grid">
     <div class="stat-card warning">
         <div class="stat-icon">📝</div>
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const session = getSession();
     if (!session) return;
     
-    if (session.role === 'coordinator1') {
+    if (session.role === 'field_coordinator') {
         try {
             const [subs, bens, att] = await Promise.all([
                 api('GET', `/subareas/coordinator/${session.id}`).catch(() => []),
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
             console.error(e);
         }
-    } else if (session.role === 'coordinator2') {
+    } else if (session.role === 'delivery_coordinator') {
         try {
             const [assigns, deliveries] = await Promise.all([
                 api('GET', `/assignments/coordinator/${session.id}`).catch(() => []),

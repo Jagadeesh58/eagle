@@ -230,11 +230,11 @@ class EaglDB:
         return self.run_query(sql, (beneficiary_id, coordinator2_id, livestock_type))
 
     def mark_delivered(self, del_id, notes):
-        # Coordinator2 updates this after physically delivering the livestock
+        # Delivery coordinator updates this after physically delivering the livestock
         self.run_query("UPDATE livestock_delivery SET delivered = TRUE, notes = %s WHERE id = %s", (notes, del_id))
 
     def mark_upskill_done(self, del_id, notes):
-        # Coordinator2 updates this after completing the training session
+        # Delivery coordinator updates this after completing the training session
         self.run_query("UPDATE livestock_delivery SET upskill_done = TRUE, notes = %s WHERE id = %s", (notes, del_id))
 
     def delete_delivery(self, del_id):
@@ -293,7 +293,7 @@ class EaglDB:
 
 
     # ============================================================
-    # COORDINATOR2 ASSIGNMENTS
+    # DELIVERY COORDINATOR ASSIGNMENTS
     # ============================================================
 
     def get_assignment_by_id(self, assign_id):

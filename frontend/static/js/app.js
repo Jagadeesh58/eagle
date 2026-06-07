@@ -173,14 +173,14 @@ function roleBadge(role) {
     const cls = {
         admin: 'badge-admin',
         manager: 'badge-manager',
-        coordinator1: 'badge-coordinator1',
-        coordinator2: 'badge-coordinator2',
+        field_coordinator: 'badge-coordinator1',
+        delivery_coordinator: 'badge-coordinator2',
     };
     const label = {
         admin: 'Admin',
         manager: 'Manager',
-        coordinator1: 'Coordinator 1',
-        coordinator2: 'Coordinator 2',
+        field_coordinator: 'Field Coordinator',
+        delivery_coordinator: 'Delivery Coordinator',
     };
     return `<span class="badge ${cls[role] || 'badge-secondary'}">${label[role] || role}</span>`;
 }
@@ -238,14 +238,14 @@ function setupNavigation() {
     const roleEl   = document.querySelector('.sidebar-footer .user-meta .role-text');
     if (avatarEl) avatarEl.textContent = (session.name || 'U')[0].toUpperCase();
     if (nameEl)   nameEl.textContent = session.name;
-    if (roleEl)   roleEl.textContent = session.role.replace('coordinator', 'Coord ');
+    if (roleEl)   roleEl.textContent = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
     // Set topbar info
     const topName = document.getElementById('topUserName');
     const topRole = document.getElementById('topUserRole');
     if (topName) topName.textContent = session.name;
     if (topRole) {
-        topRole.textContent = session.role.replace('coordinator', 'Coord ');
+        topRole.textContent = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
 
     // Highlight active nav item

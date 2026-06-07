@@ -15,7 +15,7 @@ USE eagle_db;
 
 -- ============================================================
 -- TABLE 1: users
--- Stores all 4 roles: admin, manager, coordinator1, coordinator2
+-- Stores all 4 roles: admin, manager, field_coordinator, delivery_coordinator
 -- manager_id is NULL for admin and manager
 -- manager_id is filled for coordinators (points to their manager)
 -- ============================================================
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     name        VARCHAR(100),
     email       VARCHAR(100) UNIQUE,
     password    VARCHAR(255),
-    role        ENUM('admin', 'manager', 'coordinator1', 'coordinator2'),
+    role        ENUM('admin', 'manager', 'field_coordinator', 'delivery_coordinator'),
     manager_id  INT,
     created_at  DATETIME DEFAULT NOW(),
     FOREIGN KEY (manager_id) REFERENCES users(id)
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS funds (
 -- ============================================================
 -- TABLE 4: sub_areas
 -- Manager breaks his big area into smaller sub areas
--- Each sub area is assigned to a coordinator1
+-- Each sub area is assigned to a field_coordinator
 -- area_id links back to the main areas table
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sub_areas (
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS sub_areas (
 
 -- ============================================================
 -- TABLE 5: attendance
--- Coordinator1 checks in every morning with GPS coordinates
+-- Field coordinator checks in every morning with GPS coordinates
 -- Manager verifies coordinates match the assigned sub area
 -- is_present starts as FALSE, manager sets TRUE after verification
 -- DECIMAL(9,6) for GPS gives accuracy up to 6 decimal places
@@ -105,11 +105,11 @@ CREATE TABLE IF NOT EXISTS attendance (
 
 -- ============================================================
 -- TABLE 6: beneficiaries
--- Coordinator1 collects each family's details in the field
+-- Field coordinator collects each family's details in the field
 -- is_approved starts FALSE
 -- Manager filters using per capita = annual_income / family_members
 -- Manager sets is_approved = TRUE for qualifying families
--- Coordinator2 sees only approved families for delivery
+-- Delivery coordinator sees only approved families for delivery
 -- ============================================================
 CREATE TABLE IF NOT EXISTS beneficiaries (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS beneficiaries (
 -- TABLE 7: eligible_families
 -- Manager approves beneficiaries and inserts them here with per-capita income
 -- This keeps the original beneficiaries table clean (raw field data only)
--- Coordinator2 queries this table to see who needs livestock delivery
+-- Delivery coordinator queries this table to see who needs livestock delivery
 -- ============================================================
 CREATE TABLE IF NOT EXISTS eligible_families (
     id                  INT PRIMARY KEY AUTO_INCREMENT,
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS eligible_families (
 
 -- ============================================================
 -- TABLE 8: coordinator_live_tracking
--- Coordinator1's phone sends GPS every few minutes while in the field
+-- Field coordinator's phone sends GPS every few minutes while in the field
 -- Manager queries latest row per coordinator to see live location
 -- ============================================================
 CREATE TABLE IF NOT EXISTS coordinator_live_tracking (
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS coordinator_live_tracking (
 
 -- ============================================================
 -- TABLE 9: coordinator2_assignments
--- Manager assigns approved families to coordinator2 for delivery
+-- Manager assigns approved families to delivery coordinator for delivery
 -- status tracks progress: pending → delivered → completed
 -- ============================================================
 CREATE TABLE IF NOT EXISTS coordinator2_assignments (
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS coordinator2_assignments (
 
 -- ============================================================
 -- TABLE 10: livestock_delivery
--- Coordinator2 delivers livestock and trains approved families
+-- Delivery coordinator delivers livestock and trains approved families
 -- delivered and upskill_done tracked separately
 -- because delivery and training happen on different days
 -- ============================================================

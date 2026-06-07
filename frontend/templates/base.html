@@ -47,16 +47,16 @@
             <li><a href="/manager/funds"><span class="nav-icon">💰</span> My Funds</a></li>
             {% endif %}
 
-            {# ---- COORDINATOR1 NAV ---- #}
-            {% if user.role == 'coordinator1' %}
+            {# ---- FIELD COORDINATOR NAV ---- #}
+            {% if user.role == 'field_coordinator' %}
             <li class="nav-section">Field Work</li>
             <li><a href="/coordinator/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
             <li><a href="/coordinator/attendance"><span class="nav-icon">📋</span> Attendance</a></li>
             <li><a href="/coordinator/beneficiaries"><span class="nav-icon">👨‍👩‍👧‍👦</span> Add Families</a></li>
             {% endif %}
 
-            {# ---- COORDINATOR2 NAV ---- #}
-            {% if user.role == 'coordinator2' %}
+            {# ---- DELIVERY COORDINATOR NAV ---- #}
+            {% if user.role == 'delivery_coordinator' %}
             <li class="nav-section">Delivery Work</li>
             <li><a href="/coordinator/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
             <li><a href="/coordinator/assignments"><span class="nav-icon">📝</span> My Assignments</a></li>
@@ -69,7 +69,7 @@
             <div class="user-avatar" id="sidebarAvatar">{{ user.name[0] | upper }}</div>
             <div class="user-meta">
                 <div class="name">{{ user.name }}</div>
-                <div class="role-text">{{ user.role | replace('coordinator', 'Coordinator ') }}</div>
+                <div class="role-text">{{ user.role | replace('_', ' ') | title }}</div>
             </div>
             <button class="logout-btn" onclick="logout()" title="Logout">⏻</button>
         </div>
@@ -81,7 +81,7 @@
             <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
             <div class="user-info">
                 <span id="topUserName">{{ user.name }}</span>
-                <span class="role-badge" id="topUserRole">{{ user.role | replace('coordinator', 'Coord ') }}</span>
+                <span class="role-badge" id="topUserRole">{{ user.role | replace('_', ' ') | title }}</span>
             </div>
         </header>
 

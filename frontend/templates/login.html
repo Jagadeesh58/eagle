@@ -71,8 +71,8 @@
         const routes = {
             admin: '/admin/dashboard',
             manager: '/manager/dashboard',
-            coordinator1: '/coordinator/dashboard',
-            coordinator2: '/coordinator/dashboard',
+            field_coordinator: '/coordinator/dashboard',
+            delivery_coordinator: '/coordinator/dashboard',
         };
         window.location.href = routes[existing.role] || '/';
     }
@@ -96,8 +96,8 @@
             const routes = {
                 admin: '/admin/dashboard',
                 manager: '/manager/dashboard',
-                coordinator1: '/coordinator/dashboard',
-                coordinator2: '/coordinator/dashboard',
+                field_coordinator: '/coordinator/dashboard',
+                delivery_coordinator: '/coordinator/dashboard',
             };
             window.location.href = routes[user.role] || '/';
         } catch (err) {

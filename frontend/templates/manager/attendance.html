@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const coords = await api('GET', `/users/manager/${session.id}/coordinators`);
         const sel = document.getElementById('coordFilter');
-        coords.filter(c => c.role === 'coordinator1').forEach(c => {
+        coords.filter(c => c.role === 'field_coordinator').forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = `${c.name} (#${c.id})`;

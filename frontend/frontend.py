@@ -120,7 +120,7 @@ def manager_funds_page(request: Request):
 @frontend_router.get("/coordinator/dashboard", response_class=HTMLResponse)
 def coordinator_dashboard_page(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] not in ("coordinator1", "coordinator2"):
+    if not user or user["role"] not in ("field_coordinator", "delivery_coordinator"):
         return RedirectResponse("/")
     return templates.TemplateResponse(request, "coordinator/dashboard.html", {"request": request, "user": user})
 
@@ -128,7 +128,7 @@ def coordinator_dashboard_page(request: Request):
 @frontend_router.get("/coordinator/attendance", response_class=HTMLResponse)
 def coordinator_attendance_page(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] != "coordinator1":
+    if not user or user["role"] != "field_coordinator":
         return RedirectResponse("/")
     return templates.TemplateResponse(request, "coordinator/attendance.html", {"request": request, "user": user})
 
@@ -136,7 +136,7 @@ def coordinator_attendance_page(request: Request):
 @frontend_router.get("/coordinator/beneficiaries", response_class=HTMLResponse)
 def coordinator_beneficiaries_page(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] != "coordinator1":
+    if not user or user["role"] != "field_coordinator":
         return RedirectResponse("/")
     return templates.TemplateResponse(request, "coordinator/beneficiaries.html", {"request": request, "user": user})
 
@@ -144,7 +144,7 @@ def coordinator_beneficiaries_page(request: Request):
 @frontend_router.get("/coordinator/deliveries", response_class=HTMLResponse)
 def coordinator_deliveries_page(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] != "coordinator2":
+    if not user or user["role"] != "delivery_coordinator":
         return RedirectResponse("/")
     return templates.TemplateResponse(request, "coordinator/deliveries.html", {"request": request, "user": user})
 
@@ -152,6 +152,6 @@ def coordinator_deliveries_page(request: Request):
 @frontend_router.get("/coordinator/assignments", response_class=HTMLResponse)
 def coordinator_assignments_page(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] != "coordinator2":
+    if not user or user["role"] != "delivery_coordinator":
         return RedirectResponse("/")
     return templates.TemplateResponse(request, "coordinator/assignments.html", {"request": request, "user": user})
