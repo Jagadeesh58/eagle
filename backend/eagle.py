@@ -141,6 +141,9 @@ class EaglDB:
     def get_areas_by_manager(self, manager_id):
         return self.get_many("SELECT * FROM areas WHERE manager_id = %s", (manager_id,))
 
+    def get_area_by_name(self, area_name):
+        return self.get_one("SELECT * FROM areas WHERE area_name = %s", (area_name,))
+
     def add_area(self, area_name, district, poverty_percent, manager_id):
         sql = "INSERT INTO areas (area_name, district, poverty_percent, manager_id) VALUES (%s, %s, %s, %s)"
         return self.run_query(sql, (area_name, district, poverty_percent, manager_id))

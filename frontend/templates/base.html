@@ -217,11 +217,29 @@
 
         </div>
 
-        <!-- Modal Footer — Logout -->
+        <!-- Modal Footer — Clean Professional Text Layout -->
         <div class="modal-footer profile-modal-footer">
             <button class="btn btn-danger btn-logout-profile" onclick="confirmLogout()">
-                ⏻ &nbsp;Logout
+                Logout →
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================
+     CENTERED SIGN OUT MODAL — Clean Text Confirmation
+     ====================================================== -->
+<div class="modal-overlay" id="logoutConfirmModal">
+    <div class="modal" style="max-width: 400px; text-align: center; padding: 24px;">
+        <div class="modal-header" style="justify-content: center; border-bottom: none; padding: 0 0 12px 0;">
+            <h3 style="font-size: 1.25rem; color: var(--danger);">Sign Out</h3>
+        </div>
+        <div class="modal-body" style="padding: 25px 0 30px 0;">
+            <p style="font-size: 1.05rem; color: var(--text); font-weight: 500; margin: 0;">Are you sure you want to sign out?</p>
+        </div>
+        <div class="modal-footer" style="justify-content: center; gap: 12px; border-top: none; padding: 0;">
+            <button class="btn" onclick="closeModal('logoutConfirmModal')" style="background: var(--border); color: var(--text-secondary);">Cancel</button>
+            <button class="btn btn-danger" onclick="logout()">Yes, Sign Out</button>
         </div>
     </div>
 </div>
@@ -404,9 +422,8 @@
     }
 
     function confirmLogout() {
-        if (window.confirm('Are you sure you want to sign out?')) {
-            logout();
-        }
+        closeModal('profileModal');
+        openModal('logoutConfirmModal');
     }
 </script>
 </body>

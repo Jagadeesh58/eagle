@@ -257,6 +257,8 @@ def get_areas_by_manager(manager_id: int):
 
 @backend_router.post('/areas', tags=['Areas'])
 def add_area(area: Area):
+    if db.get_area_by_name(area.area_name):
+        raise HTTPException(status_code=400, detail="Area is already registered")
     new_id = db.add_area(area.area_name, area.district, area.poverty_percent, area.manager_id)
     return db.get_area_by_id(new_id)
 
