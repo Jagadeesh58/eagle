@@ -58,7 +58,7 @@
                     </div>
                 </div>
                 <button type="button" class="btn btn-primary btn-block btn-lg" id="loginBtn" onclick="handleLogin(event)">
-                    Sign In
+                    Login
                 </button>
             </form>
         </div>
@@ -157,13 +157,13 @@
             } else {
                 errEl.textContent = 'Invalid user role.';
                 errEl.classList.add('visible');
-                btn.textContent = 'Sign In';
+                btn.textContent = 'Login';
                 btn.disabled = false;
             }
         } catch (err) {
             errEl.textContent = err.message || 'Invalid email or password';
             errEl.classList.add('visible');
-            btn.textContent = 'Sign In';
+            btn.textContent = 'Login';
             btn.disabled = false;
         }
     }

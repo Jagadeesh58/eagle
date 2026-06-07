@@ -78,7 +78,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('userModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="saveBtn">Save User</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Confirm</button>
             </div>
         </form>
     </div>
@@ -159,7 +159,7 @@ async function saveUser(e) {
     e.preventDefault();
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.textContent = 'Confirming...';
     
     try {
         const id = document.getElementById('userId').value;
@@ -193,7 +193,7 @@ async function saveUser(e) {
         showNotification(err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Save User';
+        btn.textContent = 'Confirm';
     }
 }
 
