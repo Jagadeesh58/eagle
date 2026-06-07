@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             tbody.innerHTML = recent.map(u => `
                 <tr>
                     <td class="cell-id">#${u.id}</td>
-                    <td>${u.name}</td>
+                    <td>${escapeHtml(u.name)}</td>
                     <td>${roleBadge(u.role)}</td>
                     <td class="cell-muted">${formatDate(u.created_at)}</td>
                 </tr>

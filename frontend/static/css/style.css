@@ -372,6 +372,7 @@ h4 { font-size: 1rem; font-weight: 600; }
 .stat-card.warning::after { background: var(--warning); }
 .stat-card.danger::after  { background: var(--danger); }
 .stat-card.info::after    { background: var(--info); }
+.stat-card.primary::after { background: var(--primary); }
 
 .stat-card .stat-icon {
     width: 44px;
@@ -390,6 +391,7 @@ h4 { font-size: 1rem; font-weight: 600; }
 .stat-card.warning .stat-icon { background: var(--warning-light); color: var(--warning); }
 .stat-card.danger  .stat-icon { background: var(--danger-light);  color: var(--danger); }
 .stat-card.info    .stat-icon { background: var(--info-light);    color: var(--info); }
+.stat-card.primary .stat-icon { background: var(--primary-light); color: var(--primary); }
 
 .stat-card .stat-number {
     font-size: 1.8rem;
@@ -1253,6 +1255,22 @@ select.form-control {
     }
     .sidebar.open {
         transform: translateX(0);
+    }
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 90;
+        opacity: 0;
+        visibility: hidden;
+        transition: var(--transition);
+    }
+    .sidebar-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    .mobile-menu-btn {
+        display: flex !important;
     }
     .main-content {
         margin-left: 0;

@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
 from datetime import date
-from eagle import EaglDB
+try:
+    from backend.eagle import EaglDB
+except ModuleNotFoundError:
+    from eagle import EaglDB
 
 backend_router = APIRouter()
 db = EaglDB()
@@ -18,7 +21,7 @@ class User(BaseModel):
     
 class UserCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     password: str
     role: str
     mobile: Optional[str] = None
@@ -27,7 +30,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     id: int
     name: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[str] = None
     mobile: Optional[str] = None
@@ -117,6 +120,17 @@ class Assignment(BaseModel):
     sub_area_id: int
     assigned_date: date
     
+class AssignmentUpdate(BaseModel):
+    id: int
+    coordinator2_id: int
+    beneficiary_id: int
+    sub_area_id: int
+    assigned_date: date
+
+# ============================================================
+# USERS
+# ============================================================
+
 @backend_router.get('/users', tags=['Users'])
 def get_all_users():
     return db.get_all_users()
@@ -126,12 +140,13 @@ def get_user(user_id: int):
     user = db.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    # Exclude password hash
+    user.pop("password", None)
     return user
 
 @backend_router.get('/users/manager/{manager_id}/coordinators', tags=['Users'])
 def get_coordinators_under_manager(manager_id: int):
-    if db.get_user_by_id(manager_id) is None:
-        raise HTTPException(status_code=404, detail="Manager not found")
+    # Instead of throwing 404, just return empty list
     return db.get_coordinators_under_manager(manager_id)
 
 @backend_router.post('/users/login', tags=['Users'])
@@ -146,10 +161,15 @@ def change_password(req: ChangePasswordRequest):
     user = db.get_user_by_id(req.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    if user['password'] != req.old_password:
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+    if not db.verify_password(req.old_password, user['password']):
+        # Fallback check if it was still plain text
+        if user['password'] != req.old_password:
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+            
     if len(req.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+        
     db.change_password(req.user_id, req.new_password)
     return {"message": "Password updated successfully"}
 
@@ -159,37 +179,54 @@ def update_profile(req: UpdateProfileRequest):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     db.update_user_profile(req.user_id, req.name, req.mobile)
-    return db.get_user_by_id(req.user_id)
+    updated = db.get_user_by_id(req.user_id)
+    updated.pop('password', None)
+    return updated
 
 @backend_router.post('/users', tags=['Users'])
 def add_user(user: UserCreate):
     if db.get_user_by_email(user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
+        
+    if user.role in ('field_coordinator', 'delivery_coordinator') and not user.manager_id:
+        raise HTTPException(status_code=400, detail="Coordinators must have a manager_id")
+        
+    if user.role in ('admin', 'manager') and user.manager_id:
+        user.manager_id = None
+        
     new_id = db.add_user(user.name, user.email, user.password, user.role, user.mobile, user.manager_id)
-    return db.get_user_by_id(new_id)
+    new_user = db.get_user_by_id(new_id)
+    new_user.pop('password', None)
+    return new_user
 
 @backend_router.put('/users', tags=['Users'])
 def update_user(user: UserUpdate):
     existing_user = db.get_user_by_id(user.id)
     if existing_user is None:
         raise HTTPException(status_code=404, detail="User not found")
+        
     if user.email is not None and user.email != existing_user['email']:
         if db.get_user_by_email(user.email):
             raise HTTPException(status_code=400, detail="Email already registered")
-    if user.name is None:
-        user.name = existing_user['name']
-    if user.email is None:
-        user.email = existing_user['email']
-    if user.password is None:
-        user.password = existing_user['password']
-    if user.role is None:
-        user.role = existing_user['role']
-    if user.mobile is None:
-        user.mobile = existing_user.get('mobile')
-    if user.manager_id is None:
-        user.manager_id = existing_user['manager_id']
-    db.update_user(user.id, user.name, user.email, user.password, user.role, user.mobile, user.manager_id)
-    return db.get_user_by_id(user.id)
+            
+    if user.role in ('field_coordinator', 'delivery_coordinator') and not user.manager_id and not existing_user['manager_id']:
+        raise HTTPException(status_code=400, detail="Coordinators must have a manager_id")
+        
+    # Resolve defaults
+    u_name = user.name if user.name is not None else existing_user['name']
+    u_email = user.email if user.email is not None else existing_user['email']
+    u_password = user.password if user.password is not None else existing_user['password']
+    u_role = user.role if user.role is not None else existing_user['role']
+    u_mobile = user.mobile if user.mobile is not None else existing_user.get('mobile')
+    u_manager_id = user.manager_id if user.manager_id is not None else existing_user['manager_id']
+
+    if u_role in ('admin', 'manager'):
+        u_manager_id = None
+
+    db.update_user(user.id, u_name, u_email, u_password, u_role, u_mobile, u_manager_id)
+    updated = db.get_user_by_id(user.id)
+    updated.pop('password', None)
+    return updated
 
 @backend_router.delete('/users/{user_id}', tags=['Users'])
 def delete_user(user_id: int):
@@ -197,6 +234,10 @@ def delete_user(user_id: int):
         raise HTTPException(status_code=404, detail="User not found")
     db.delete_user(user_id)
     return {"message": "User deleted successfully"}
+
+# ============================================================
+# AREAS
+# ============================================================
 
 @backend_router.get('/areas', tags=['Areas'])
 def get_all_areas():
@@ -211,10 +252,8 @@ def get_area(area_id: int):
 
 @backend_router.get('/areas/manager/{manager_id}', tags=['Areas'])
 def get_areas_by_manager(manager_id: int):
-    areas = db.get_areas_by_manager(manager_id)
-    if not areas:
-        raise HTTPException(status_code=404, detail="No areas found for this manager")
-    return areas
+    # Always return a list, even if empty
+    return db.get_areas_by_manager(manager_id)
 
 @backend_router.post('/areas', tags=['Areas'])
 def add_area(area: Area):
@@ -235,6 +274,10 @@ def delete_area(area_id: int):
     db.delete_area(area_id)
     return {"message": "Area deleted successfully"}
 
+# ============================================================
+# FUNDS
+# ============================================================
+
 @backend_router.get('/funds', tags=['Funds'])
 def get_all_funds():
     return db.get_all_funds()
@@ -248,21 +291,27 @@ def get_fund(fund_id: int):
 
 @backend_router.get('/funds/manager/{manager_id}', tags=['Funds'])
 def get_fund_by_manager(manager_id: int):
+    # Returns None/empty object rather than throwing 404 to be safe
     fund = db.get_fund_by_manager(manager_id)
     if fund is None:
-        raise HTTPException(status_code=404, detail="No fund found for this manager")
+        return None
     return fund
 
 @backend_router.post('/funds', tags=['Funds'])
 def add_fund(fund: Fund):
+    if fund.total_amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
     new_id = db.add_fund(fund.manager_id, fund.total_amount)
     return db.get_fund_by_id(new_id)
 
 @backend_router.put('/funds/spend', tags=['Funds'])
 def spend_from_fund(req: SpendRequest):
-    if db.get_fund_by_manager(req.manager_id) is None:
-        raise HTTPException(status_code=404, detail="No fund found for this manager")
-    db.deduct_from_fund(req.manager_id, req.amount_spent)
+    if req.amount_spent <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    try:
+        db.deduct_from_fund(req.manager_id, req.amount_spent)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return db.get_fund_by_manager(req.manager_id)
 
 @backend_router.delete('/funds/{fund_id}', tags=['Funds'])
@@ -271,6 +320,10 @@ def delete_fund(fund_id: int):
         raise HTTPException(status_code=404, detail="Fund not found")
     db.delete_fund(fund_id)
     return {"message": "Fund deleted successfully"}
+
+# ============================================================
+# SUB AREAS
+# ============================================================
 
 @backend_router.get('/subareas', tags=['Sub Areas'])
 def get_all_sub_areas():
@@ -285,17 +338,15 @@ def get_sub_area(subarea_id: int):
 
 @backend_router.get('/subareas/area/{area_id}', tags=['Sub Areas'])
 def get_sub_areas_by_area(area_id: int):
-    subareas = db.get_sub_areas_by_area(area_id)
-    if not subareas:
-        raise HTTPException(status_code=404, detail="No sub areas found for this area")
-    return subareas
+    return db.get_sub_areas_by_area(area_id)
 
 @backend_router.get('/subareas/coordinator/{coordinator1_id}', tags=['Sub Areas'])
 def get_sub_areas_by_coordinator(coordinator1_id: int):
-    subareas = db.get_sub_areas_by_coordinator(coordinator1_id)
-    if not subareas:
-        raise HTTPException(status_code=404, detail="No sub areas found for this coordinator")
-    return subareas
+    return db.get_sub_areas_by_coordinator(coordinator1_id)
+    
+@backend_router.get('/subareas/manager/{manager_id}', tags=['Sub Areas'])
+def get_sub_areas_by_manager(manager_id: int):
+    return db.get_sub_areas_by_manager(manager_id)
 
 @backend_router.post('/subareas', tags=['Sub Areas'])
 def add_sub_area(subarea: SubArea):
@@ -319,6 +370,10 @@ def delete_sub_area(subarea_id: int):
     db.delete_sub_area(subarea_id)
     return {"message": "Sub area deleted successfully"}
 
+# ============================================================
+# ATTENDANCE
+# ============================================================
+
 @backend_router.get('/attendance/{att_id}', tags=['Attendance'])
 def get_attendance(att_id: int):
     record = db.get_attendance_by_id(att_id)
@@ -328,20 +383,27 @@ def get_attendance(att_id: int):
 
 @backend_router.get('/attendance/coordinator/{coordinator_id}', tags=['Attendance'])
 def get_attendance_by_coordinator(coordinator_id: int):
-    records = db.get_attendance_by_coordinator(coordinator_id)
-    if not records:
-        raise HTTPException(status_code=404, detail="No attendance records found")
-    return records
+    return db.get_attendance_by_coordinator(coordinator_id)
+
+@backend_router.get('/attendance/manager/{manager_id}', tags=['Attendance'])
+def get_attendance_by_manager(manager_id: int):
+    return db.get_attendance_by_manager(manager_id)
 
 @backend_router.get('/attendance/today/{coordinator_id}', tags=['Attendance'])
 def get_todays_attendance(coordinator_id: int):
     record = db.get_todays_attendance(coordinator_id)
     if record is None:
-        raise HTTPException(status_code=404, detail="No check-in found for today")
+        # Return null to easily check in JS
+        return None
     return record
 
 @backend_router.post('/attendance', tags=['Attendance'])
 def add_attendance(att: Attendance):
+    # Prevent multiple check-ins on same day
+    existing = db.get_todays_attendance(att.coordinator_id)
+    if existing:
+        raise HTTPException(status_code=400, detail="Already checked in today")
+        
     new_id = db.add_attendance(att.coordinator_id, att.sub_area_id)
     return db.get_attendance_by_id(new_id)
 
@@ -359,6 +421,10 @@ def delete_attendance(att_id: int):
     db.delete_attendance(att_id)
     return {"message": "Attendance record deleted successfully"}
 
+# ============================================================
+# BENEFICIARIES
+# ============================================================
+
 @backend_router.get('/beneficiaries/{ben_id}', tags=['Beneficiaries'])
 def get_beneficiary(ben_id: int):
     ben = db.get_beneficiary_by_id(ben_id)
@@ -368,10 +434,11 @@ def get_beneficiary(ben_id: int):
 
 @backend_router.get('/beneficiaries/collector/{collector_id}', tags=['Beneficiaries'])
 def get_beneficiaries_by_collector(collector_id: int):
-    bens = db.get_beneficiaries_by_collector(collector_id)
-    if not bens:
-        raise HTTPException(status_code=404, detail="No records found for this collector")
-    return bens
+    return db.get_beneficiaries_by_collector(collector_id)
+
+@backend_router.get('/beneficiaries/manager/{manager_id}', tags=['Beneficiaries'])
+def get_beneficiaries_by_manager(manager_id: int):
+    return db.get_beneficiaries_by_manager(manager_id)
 
 @backend_router.get('/beneficiaries/approved', tags=['Beneficiaries'])
 def get_approved_beneficiaries():
@@ -379,13 +446,15 @@ def get_approved_beneficiaries():
 
 @backend_router.post('/beneficiaries/filter', tags=['Beneficiaries'])
 def filter_by_income(req: FilterRequest):
-    bens = db.filter_beneficiaries_by_income(req.sub_area_id, req.per_capita_limit)
-    if not bens:
-        raise HTTPException(status_code=404, detail="No families match this income filter")
-    return bens
+    return db.filter_beneficiaries_by_income(req.sub_area_id, req.per_capita_limit)
 
 @backend_router.post('/beneficiaries', tags=['Beneficiaries'])
 def add_beneficiary(ben: Beneficiary):
+    if ben.family_members <= 0:
+        raise HTTPException(status_code=400, detail="Family members must be > 0")
+    if ben.annual_income < 0:
+        raise HTTPException(status_code=400, detail="Annual income cannot be negative")
+        
     new_id = db.add_beneficiary(
         ben.family_name, ben.sub_area_id, ben.family_members, ben.annual_income, ben.collector_id
     )
@@ -405,6 +474,10 @@ def delete_beneficiary(ben_id: int):
     db.delete_beneficiary(ben_id)
     return {"message": "Beneficiary deleted successfully"}
 
+# ============================================================
+# DELIVERY
+# ============================================================
+
 @backend_router.get('/delivery/{del_id}', tags=['Delivery'])
 def get_delivery(del_id: int):
     delivery = db.get_delivery_by_id(del_id)
@@ -414,10 +487,7 @@ def get_delivery(del_id: int):
 
 @backend_router.get('/delivery/coordinator/{coordinator2_id}', tags=['Delivery'])
 def get_deliveries_by_coordinator(coordinator2_id: int):
-    deliveries = db.get_deliveries_by_coordinator(coordinator2_id)
-    if not deliveries:
-        raise HTTPException(status_code=404, detail="No deliveries found for this coordinator")
-    return deliveries
+    return db.get_deliveries_by_coordinator(coordinator2_id)
 
 @backend_router.get('/delivery/all', tags=['Delivery'])
 def get_all_deliveries():
@@ -449,16 +519,21 @@ def delete_delivery(del_id: int):
     db.delete_delivery(del_id)
     return {"message": "Delivery record deleted successfully"}
 
+# ============================================================
+# ELIGIBLE FAMILIES
+# ============================================================
+
 @backend_router.get('/eligible', tags=['Eligible Families'])
 def get_all_eligible():
     return db.get_all_eligible_families()
 
 @backend_router.get('/eligible/status/{status}', tags=['Eligible Families'])
 def get_eligible_by_status(status: str):
-    records = db.get_eligible_by_status(status)
-    if not records:
-        raise HTTPException(status_code=404, detail="No records found for this status")
-    return records
+    return db.get_eligible_by_status(status)
+
+@backend_router.get('/eligible/manager/{manager_id}', tags=['Eligible Families'])
+def get_eligible_by_manager(manager_id: int):
+    return db.get_eligible_by_manager(manager_id)
 
 @backend_router.get('/eligible/{ef_id}', tags=['Eligible Families'])
 def get_eligible(ef_id: int):
@@ -487,19 +562,17 @@ def delete_eligible(ef_id: int):
     return {"message": "Record deleted successfully"}
 
 
+# ============================================================
+# ASSIGNMENTS
+# ============================================================
+
 @backend_router.get('/assignments/coordinator/{coordinator2_id}', tags=['Assignments'])
 def get_assignments_by_coordinator(coordinator2_id: int):
-    assignments = db.get_assignments_by_coordinator2(coordinator2_id)
-    if not assignments:
-        raise HTTPException(status_code=404, detail="No assignments found")
-    return assignments
+    return db.get_assignments_by_coordinator2(coordinator2_id)
 
 @backend_router.get('/assignments/manager/{manager_id}', tags=['Assignments'])
 def get_assignments_by_manager(manager_id: int):
-    assignments = db.get_assignments_by_manager(manager_id)
-    if not assignments:
-        raise HTTPException(status_code=404, detail="No assignments found")
-    return assignments
+    return db.get_assignments_by_manager(manager_id)
 
 @backend_router.get('/assignments/{assign_id}', tags=['Assignments'])
 def get_assignment(assign_id: int):
@@ -517,20 +590,18 @@ def add_assignment(assign: Assignment):
     return db.get_assignment_by_id(new_id)
 
 @backend_router.put('/assignments', tags=['Assignments'])
-def update_assignment(assign: dict):
-    # Expected dict with id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date
-    assign_id = assign.get('id')
-    if not assign_id or db.get_assignment_by_id(assign_id) is None:
+def update_assignment(assign: AssignmentUpdate):
+    if db.get_assignment_by_id(assign.id) is None:
         raise HTTPException(status_code=404, detail="Assignment not found")
     
     db.update_assignment(
-        assign_id,
-        assign.get('coordinator2_id'),
-        assign.get('beneficiary_id'),
-        assign.get('sub_area_id'),
-        assign.get('assigned_date')
+        assign.id,
+        assign.coordinator2_id,
+        assign.beneficiary_id,
+        assign.sub_area_id,
+        assign.assigned_date
     )
-    return db.get_assignment_by_id(assign_id)
+    return db.get_assignment_by_id(assign.id)
 
 @backend_router.put('/assignments/{assign_id}/status', tags=['Assignments'])
 def update_assignment_status(assign_id: int, req: StatusUpdate):

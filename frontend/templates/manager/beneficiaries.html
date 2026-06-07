@@ -50,13 +50,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!session) return;
     
     try {
-        const allSubs = await api('GET', '/subareas').catch(() => []);
-        const mySubs = allSubs.filter(s => s.manager_id === session.id);
+        const subs = await api('GET', `/subareas/manager/${session.id}`).catch(() => []);
         const sel = document.getElementById('filterSubArea');
-        mySubs.forEach(s => {
+        subs.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.id;
-            opt.textContent = `${s.sub_area_name} (#${s.id})`;
+            opt.textContent = `${escapeHtml(s.sub_area_name)} (#${s.id})`;
             sel.appendChild(opt);
         });
     } catch(e) {}
@@ -94,11 +93,11 @@ function renderTable() {
     }
     
     tbody.innerHTML = bensData.map(b => {
-        const pc = b.annual_income / b.family_members;
+        const pc = b.family_members > 0 ? b.annual_income / b.family_members : 0;
         return `
         <tr>
             <td class="cell-id">#${b.id}</td>
-            <td><strong>${b.family_name}</strong></td>
+            <td><strong>${escapeHtml(b.family_name)}</strong></td>
             <td>${b.family_members}</td>
             <td>${formatCurrency(b.annual_income)}</td>
             <td class="text-warning fw-600">${formatCurrency(pc)}</td>
@@ -120,7 +119,7 @@ async function approve(id) {
         
         // Also auto-add to eligible families table
         const ben = bensData.find(b => b.id === id);
-        const pc = ben.annual_income / ben.family_members;
+        const pc = ben.family_members > 0 ? ben.annual_income / ben.family_members : 0;
         const limit = parseFloat(document.getElementById('filterLimit').value);
         
         await api('POST', '/eligible', {

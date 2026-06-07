@@ -108,8 +108,7 @@ async function loadDependencies() {
 
 async function loadSubareas() {
     try {
-        const all = await api('GET', '/subareas').catch(() => []);
-        subareasData = all.filter(s => s.manager_id === session.id);
+        subareasData = await api('GET', `/subareas/manager/${session.id}`).catch(() => []);
         renderTable();
     } catch (e) {
         showNotification(e.message, 'error');
@@ -130,7 +129,7 @@ function renderTable() {
         return `
         <tr>
             <td class="cell-id">#${s.id}</td>
-            <td><strong>${s.sub_area_name}</strong></td>
+            <td><strong>${escapeHtml(s.sub_area_name)}</strong></td>
             <td>${area ? area.area_name : '#'+s.area_id}</td>
             <td>${coord ? coord.name : '#'+s.coordinator1_id}</td>
             <td>${formatDate(s.assigned_date)}</td>

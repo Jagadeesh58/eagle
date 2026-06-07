@@ -111,8 +111,8 @@ function renderTable() {
             <td>${d.livestock_type}</td>
             <td>${boolBadge(d.delivered, 'Yes', 'No')}</td>
             <td>${boolBadge(d.upskill_done, 'Yes', 'No')}</td>
-            <td class="cell-muted" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${d.notes || ''}">
-                ${d.notes || '—'}
+            <td class="cell-muted" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(d.notes || '')}">
+                ${escapeHtml(d.notes || '—')}
             </td>
             <td>
                 <div class="actions">

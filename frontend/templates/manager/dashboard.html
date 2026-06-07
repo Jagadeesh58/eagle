@@ -46,15 +46,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const [areas, subareas, coords, funds] = await Promise.all([
             api('GET', `/areas/manager/${session.id}`).catch(() => []),
-            api('GET', '/subareas').catch(() => []),
+            api('GET', `/subareas/manager/${session.id}`).catch(() => []),
             api('GET', `/users/manager/${session.id}/coordinators`).catch(() => []),
             api('GET', `/funds/manager/${session.id}`).catch(() => null)
         ]);
         
         document.getElementById('statAreas').textContent = areas.length || 0;
-        
-        const mySubareas = subareas.filter(s => s.manager_id === session.id);
-        document.getElementById('statSubareas').textContent = mySubareas.length;
+        document.getElementById('statSubareas').textContent = subareas.length || 0;
         
         document.getElementById('statCoords').textContent = coords.length || 0;
         

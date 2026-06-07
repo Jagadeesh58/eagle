@@ -92,7 +92,7 @@ function renderTable() {
     tbody.innerHTML = bensData.sort((a,b) => b.id - a.id).map(b => `
         <tr>
             <td class="cell-id">#${b.id}</td>
-            <td><strong>${b.family_name}</strong></td>
+            <td><strong>${escapeHtml(b.family_name)}</strong></td>
             <td>SubArea #${b.sub_area_id}</td>
             <td>${b.family_members}</td>
             <td>${formatCurrency(b.annual_income)}</td>

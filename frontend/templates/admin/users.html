@@ -113,8 +113,8 @@ function renderTable() {
     tbody.innerHTML = usersData.map(u => `
         <tr>
             <td class="cell-id">#${u.id}</td>
-            <td>${u.name}</td>
-            <td>${u.email}</td>
+            <td>${escapeHtml(u.name)}</td>
+            <td>${escapeHtml(u.email)}</td>
             <td>${roleBadge(u.role)}</td>
             <td>${u.manager_id ? '#'+u.manager_id : '—'}</td>
             <td class="cell-muted">${formatDate(u.created_at)}</td>

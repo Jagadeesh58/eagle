@@ -3,7 +3,7 @@
    Session, API calls, Notifications, Modals, Navigation
    ============================================================ */
 
-const API = 'http://localhost:8000';  // backend server URL
+const API = 'http://localhost:8000/api';  // backend server URL
 
 // ============================================================
 // COOKIE MANAGEMENT
@@ -21,6 +21,19 @@ function getCookie(name) {
 
 function deleteCookie(name) {
     document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+}
+
+// ============================================================
+// SECURITY UTILITIES
+// ============================================================
+function escapeHtml(unsafe) {
+    if (unsafe == null) return '';
+    return String(unsafe)
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
 }
 
 // ============================================================
@@ -75,6 +88,11 @@ async function api(method, endpoint, body = null) {
     if (body) opts.body = JSON.stringify(body);
 
     const res = await fetch(API + endpoint, opts);
+
+    if (res.status === 401) {
+        logout(); // Session expired or invalid
+        throw new Error("Session expired. Please log in again.");
+    }
 
     if (!res.ok) {
         let msg = `Error ${res.status}`;
@@ -269,3 +287,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setupNavigation();
     }
 });
+
+// ============================================================
+// MOBILE SIDEBAR
+// ============================================================
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('active');
+}

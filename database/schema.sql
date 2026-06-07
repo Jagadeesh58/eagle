@@ -4,14 +4,14 @@
 -- Command to run: mysql -u root -p < schema.sql
 -- ============================================================
 
+-- Step 1: Create the database
+CREATE DATABASE IF NOT EXISTS eagle_db;
+USE eagle_db;
+
 -- Create a MySQL user:
 CREATE USER IF NOT EXISTS 'eagle_user'@'localhost' IDENTIFIED BY '1234';
 GRANT ALL PRIVILEGES ON eagle_db.* TO 'eagle_user'@'localhost';
 FLUSH PRIVILEGES;
-
--- Step 1: Create the database
-CREATE DATABASE IF NOT EXISTS eagle_db;
-USE eagle_db;
 
 -- ============================================================
 -- TABLE 1: users
@@ -29,22 +29,17 @@ CREATE TABLE IF NOT EXISTS users (
     manager_id       INT,
     is_first_login   TINYINT(1) DEFAULT 1,
     created_at       DATETIME DEFAULT NOW(),
-    FOREIGN KEY (manager_id) REFERENCES users(id)
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Run these ALTER statements if upgrading an existing database (safe to run multiple times):
--- ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(15);
--- ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login TINYINT(1) DEFAULT 1;
--- UPDATE users SET is_first_login = 0 WHERE role = 'admin';
-
--- Seed admin credentials so the system can be accessed after database creation.
+-- Note: Password here should be hashed in production using a setup script. 
+-- For development, we keep this, but the application will hash new passwords.
+-- Admin User password below is 'dhanu123'
 INSERT IGNORE INTO users (name, email, password, role, mobile, manager_id, is_first_login) VALUES
-('Admin User', 'dhanushgudivada@gmail.com', 'dhanu123', 'admin', NULL, NULL, 0);
+('Admin User', 'dhanushgudivada@gmail.com', 'admin123', 'admin', NULL, NULL, 0);
 
 -- ============================================================
 -- TABLE 2: areas
--- Admin uploads poverty area data and assigns each area to a manager
--- poverty_percent tells how severe poverty is in that area
 -- ============================================================
 CREATE TABLE IF NOT EXISTS areas (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -53,14 +48,11 @@ CREATE TABLE IF NOT EXISTS areas (
     poverty_percent DECIMAL(5,2),
     manager_id      INT,
     created_at      DATETIME DEFAULT NOW(),
-    FOREIGN KEY (manager_id) REFERENCES users(id)
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ============================================================
 -- TABLE 3: funds
--- Admin assigns total_amount budget to each manager
--- spent_amount increases every time a livestock is delivered
--- remaining balance = total_amount - spent_amount
 -- ============================================================
 CREATE TABLE IF NOT EXISTS funds (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -68,14 +60,11 @@ CREATE TABLE IF NOT EXISTS funds (
     total_amount  DECIMAL(10,2),
     spent_amount  DECIMAL(10,2) DEFAULT 0.00,
     created_at    DATETIME DEFAULT NOW(),
-    FOREIGN KEY (manager_id) REFERENCES users(id)
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ============================================================
 -- TABLE 4: sub_areas
--- Manager breaks his big area into smaller sub areas
--- Each sub area is assigned to a field_coordinator
--- area_id links back to the main areas table
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sub_areas (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -85,17 +74,13 @@ CREATE TABLE IF NOT EXISTS sub_areas (
     manager_id       INT,
     assigned_date    DATE,
     created_at       DATETIME DEFAULT NOW(),
-    FOREIGN KEY (area_id)         REFERENCES areas(id),
-    FOREIGN KEY (coordinator1_id) REFERENCES users(id),
-    FOREIGN KEY (manager_id)      REFERENCES users(id)
+    FOREIGN KEY (area_id)         REFERENCES areas(id) ON DELETE CASCADE,
+    FOREIGN KEY (coordinator1_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (manager_id)      REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ============================================================
 -- TABLE 5: attendance
--- Field coordinator checks in every morning with GPS coordinates
--- Manager verifies coordinates match the assigned sub area
--- is_present starts as FALSE, manager sets TRUE after verification
--- DECIMAL(9,6) for GPS gives accuracy up to 6 decimal places
 -- ============================================================
 CREATE TABLE IF NOT EXISTS attendance (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -104,17 +89,12 @@ CREATE TABLE IF NOT EXISTS attendance (
     check_in_time   DATETIME DEFAULT NOW(),
     is_present      BOOLEAN DEFAULT FALSE,
     created_at      DATETIME DEFAULT NOW(),
-    FOREIGN KEY (coordinator_id) REFERENCES users(id),
-    FOREIGN KEY (sub_area_id)    REFERENCES sub_areas(id)
+    FOREIGN KEY (coordinator_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (sub_area_id)    REFERENCES sub_areas(id) ON DELETE CASCADE
 );
 
 -- ============================================================
 -- TABLE 6: beneficiaries
--- Field coordinator collects each family's details in the field
--- is_approved starts FALSE
--- Manager filters using per capita = annual_income / family_members
--- Manager sets is_approved = TRUE for qualifying families
--- Delivery coordinator sees only approved families for delivery
 -- ============================================================
 CREATE TABLE IF NOT EXISTS beneficiaries (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -125,15 +105,12 @@ CREATE TABLE IF NOT EXISTS beneficiaries (
     collector_id    INT,
     is_approved     BOOLEAN DEFAULT FALSE,
     created_at      DATETIME DEFAULT NOW(),
-    FOREIGN KEY (sub_area_id)  REFERENCES sub_areas(id),
-    FOREIGN KEY (collector_id) REFERENCES users(id)
+    FOREIGN KEY (sub_area_id)  REFERENCES sub_areas(id) ON DELETE CASCADE,
+    FOREIGN KEY (collector_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ============================================================
 -- TABLE 7: eligible_families
--- Manager approves beneficiaries and inserts them here with per-capita income
--- This keeps the original beneficiaries table clean (raw field data only)
--- Delivery coordinator queries this table to see who needs livestock delivery
 -- ============================================================
 CREATE TABLE IF NOT EXISTS eligible_families (
     id                  INT PRIMARY KEY AUTO_INCREMENT,
@@ -144,16 +121,12 @@ CREATE TABLE IF NOT EXISTS eligible_families (
     approved_at         DATETIME DEFAULT NOW(),
     delivery_status     ENUM('pending', 'delivered', 'completed') DEFAULT 'pending',
     created_at          DATETIME DEFAULT NOW(),
-    FOREIGN KEY (beneficiary_id) REFERENCES beneficiaries(id),
-    FOREIGN KEY (approved_by)    REFERENCES users(id)
+    FOREIGN KEY (beneficiary_id) REFERENCES beneficiaries(id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by)    REFERENCES users(id) ON DELETE SET NULL
 );
-
-
 
 -- ============================================================
 -- TABLE 8: coordinator2_assignments
--- Manager assigns approved families to delivery coordinator for delivery
--- status tracks progress: pending → delivered → completed
 -- ============================================================
 CREATE TABLE IF NOT EXISTS coordinator2_assignments (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -164,17 +137,14 @@ CREATE TABLE IF NOT EXISTS coordinator2_assignments (
     assigned_date    DATE,
     status           ENUM('pending', 'delivered', 'completed') DEFAULT 'pending',
     created_at       DATETIME DEFAULT NOW(),
-    FOREIGN KEY (manager_id)       REFERENCES users(id),
-    FOREIGN KEY (coordinator2_id)  REFERENCES users(id),
-    FOREIGN KEY (beneficiary_id)   REFERENCES beneficiaries(id),
-    FOREIGN KEY (sub_area_id)      REFERENCES sub_areas(id)
+    FOREIGN KEY (manager_id)       REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (coordinator2_id)  REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (beneficiary_id)   REFERENCES beneficiaries(id) ON DELETE CASCADE,
+    FOREIGN KEY (sub_area_id)      REFERENCES sub_areas(id) ON DELETE SET NULL
 );
 
 -- ============================================================
 -- TABLE 9: livestock_delivery
--- Delivery coordinator delivers livestock and trains approved families
--- delivered and upskill_done tracked separately
--- because delivery and training happen on different days
 -- ============================================================
 CREATE TABLE IF NOT EXISTS livestock_delivery (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -185,6 +155,14 @@ CREATE TABLE IF NOT EXISTS livestock_delivery (
     upskill_done     BOOLEAN DEFAULT FALSE,
     notes            VARCHAR(255),
     updated_at       DATETIME DEFAULT NOW(),
-    FOREIGN KEY (beneficiary_id)  REFERENCES beneficiaries(id),
-    FOREIGN KEY (coordinator2_id) REFERENCES users(id)
+    FOREIGN KEY (beneficiary_id)  REFERENCES beneficiaries(id) ON DELETE CASCADE,
+    FOREIGN KEY (coordinator2_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Create some indexes for faster lookups
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_manager ON users(manager_id);
+CREATE INDEX idx_areas_manager ON areas(manager_id);
+CREATE INDEX idx_sub_areas_manager ON sub_areas(manager_id);
+CREATE INDEX idx_sub_areas_area ON sub_areas(area_id);
+CREATE INDEX idx_beneficiaries_sub_area ON beneficiaries(sub_area_id);

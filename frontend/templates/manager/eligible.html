@@ -38,9 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadEligible() {
     try {
-        const all = await api('GET', '/eligible').catch(() => []);
-        // Only show those approved by this manager
-        eligibleData = all.filter(e => e.approved_by === session.id);
+        eligibleData = await api('GET', `/eligible/manager/${session.id}`).catch(() => []);
         renderTable();
     } catch (e) {
         showNotification(e.message, 'error');

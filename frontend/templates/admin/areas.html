@@ -123,8 +123,8 @@ function renderTable() {
         return `
         <tr>
             <td class="cell-id">#${a.id}</td>
-            <td><strong>${a.area_name}</strong></td>
-            <td>${a.district}</td>
+            <td><strong>${escapeHtml(a.area_name)}</strong></td>
+            <td>${escapeHtml(a.district)}</td>
             <td>${a.poverty_percent}%</td>
             <td>${mgrName}</td>
             <td class="cell-muted">${formatDate(a.created_at)}</td>
