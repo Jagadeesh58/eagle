@@ -257,8 +257,10 @@ def get_areas_by_manager(manager_id: int):
 
 @backend_router.post('/areas', tags=['Areas'])
 def add_area(area: Area):
-    new_id = db.add_area(area.area_name, area.district, area.poverty_percent, area.manager_id)
-    return db.get_area_by_id(new_id)
+    if db.get_area_by_name(area.area_name) is None:
+        new_id = db.add_area(area.area_name, area.district, area.poverty_percent, area.manager_id)
+        return db.get_area_by_id(new_id)
+    raise HTTPException(status_code=400, detail="Area with this name already exists")
 
 @backend_router.put('/areas', tags=['Areas'])
 def update_area_manager(area: Area):

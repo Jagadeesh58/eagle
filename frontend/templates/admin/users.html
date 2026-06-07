@@ -53,7 +53,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Password <span class="required">*</span></label>
+                        <label>Password <span class="required" id="pwdRequiredMarker">*</span></label>
                         <input type="password" id="userPassword" class="form-control">
                         <div class="form-help" id="pwdHelp" style="display:none">Leave blank to keep unchanged</div>
                     </div>
@@ -128,12 +128,19 @@ function renderTable() {
     `).join('');
 }
 
+function setUserModalRequiredMarkers(show) {
+    document.querySelectorAll('#userModal .required').forEach(el => {
+        el.style.display = show ? '' : 'none';
+    });
+}
+
 function openUserModal() {
     document.getElementById('modalTitle').textContent = 'Add User';
     document.getElementById('userForm').reset();
     document.getElementById('userId').value = '';
     document.getElementById('userEmail').disabled = false;
     document.getElementById('userPassword').required = true;
+    setUserModalRequiredMarkers(true);
     document.getElementById('pwdHelp').style.display = 'none';
     openModal('userModal');
 }
@@ -150,6 +157,7 @@ function editUser(u) {
     
     document.getElementById('userPassword').value = '';
     document.getElementById('userPassword').required = false;
+    setUserModalRequiredMarkers(false);
     document.getElementById('pwdHelp').style.display = 'block';
     
     openModal('userModal');

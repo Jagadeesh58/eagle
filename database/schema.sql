@@ -43,8 +43,8 @@ INSERT IGNORE INTO users (name, email, password, role, mobile, manager_id, is_fi
 -- ============================================================
 CREATE TABLE IF NOT EXISTS areas (
     id              INT PRIMARY KEY AUTO_INCREMENT,
-    area_name       VARCHAR(100),
-    district        VARCHAR(100),
+    area_name       VARCHAR(100) unique,
+    district        VARCHAR(100) UNIQUE,
     poverty_percent DECIMAL(5,2),
     manager_id      INT,
     created_at      DATETIME DEFAULT NOW(),

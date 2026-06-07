@@ -134,6 +134,9 @@ class EaglDB:
 
     def get_all_areas(self):
         return self.get_many("SELECT * FROM areas")
+    
+    def get_area_by_name(self, area_name):
+        return self.get_one("SELECT * FROM areas WHERE area_name = %s", (area_name,))
 
     def get_area_by_id(self, area_id):
         return self.get_one("SELECT * FROM areas WHERE id = %s", (area_id,))
