@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Coordinator Dashboard{% endblock %}
+{% block page_title %}Overview{% endblock %}
+{% block content %}
+
+{% if user.role == 'field_coordinator' %}
+<!-- Field Coordinator (Field) Stats -->
+<div class="stats-grid">
+    <div class="stat-card info">
+        <div class="stat-icon">📍</div>
+        <div class="stat-number" id="c1Subareas">-</div>
+        <div class="stat-label">My Sub Areas</div>
+    </div>
+    <div class="stat-card primary">
+        <div class="stat-icon">👨‍👩‍👧‍👦</div>
+        <div class="stat-number" id="c1Families">-</div>
+        <div class="stat-label">Families Registered</div>
+    </div>
+    <div class="stat-card" id="c1AttCard">
+        <div class="stat-icon">📋</div>
+        <div class="stat-number" id="c1AttStatus">-</div>
+        <div class="stat-label">Today's Attendance</div>
+    </div>
+</div>
+{% endif %}
+
+{% if user.role == 'delivery_coordinator' %}
+<!-- Delivery Coordinator (Delivery) Stats -->
+<div class="stats-grid">
+    <div class="stat-card warning">
+        <div class="stat-icon">📝</div>
+        <div class="stat-number" id="c2Assign">-</div>
+        <div class="stat-label">Total Assignments</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-icon">🚛</div>
+        <div class="stat-number" id="c2Pending">-</div>
+        <div class="stat-label">Pending Deliveries</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">✅</div>
+        <div class="stat-number" id="c2Done">-</div>
+        <div class="stat-label">Completed Deliveries</div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mt-24">
+    <div class="card-body empty-state">
+        <div class="empty-icon">👋</div>
+        <div class="empty-title">Welcome, {{ user.name }}!</div>
+        <div class="empty-text">Use the sidebar menu to navigate through your daily tasks and assignments.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const session = getSession();
+    if (!session) return;
+    
+    if (session.role === 'field_coordinator') {
+        try {
+            const [subs, bens, att] = await Promise.all([
+                api('GET', `/subareas/coordinator/${session.id}`).catch(() => []),
+                api('GET', `/beneficiaries/collector/${session.id}`).catch(() => []),
+                api('GET', `/attendance/today/${session.id}`).catch(() => null)
+            ]);
+            
+            document.getElementById('c1Subareas').textContent = subs.length;
+            document.getElementById('c1Families').textContent = bens.length;
+            
+            const attCard = document.getElementById('c1AttCard');
+            const attStatus = document.getElementById('c1AttStatus');
+            
+            if (att) {
+                attStatus.textContent = 'Checked In';
+                attCard.classList.add('success');
+            } else {
+                attStatus.textContent = 'Pending';
+                attCard.classList.add('danger');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    } else if (session.role === 'delivery_coordinator') {
+        try {
+            const [assigns, deliveries] = await Promise.all([
+                api('GET', `/assignments/coordinator/${session.id}`).catch(() => []),
+                api('GET', `/delivery/coordinator/${session.id}`).catch(() => [])
+            ]);
+            
+            document.getElementById('c2Assign').textContent = assigns.length;
+            
+            const pending = assigns.filter(a => a.status === 'pending').length;
+            const done = assigns.filter(a => a.status === 'completed').length;
+            
+            document.getElementById('c2Pending').textContent = pending;
+            document.getElementById('c2Done').textContent = done;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+});
+</script>
+{% endblock %}

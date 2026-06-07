@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}GPS Check-In{% endblock %}
+{% block page_title %}Attendance Check-In{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 500px; margin-bottom: 24px;">
+    <div class="card-header">
+        <h3>Submit Today's Attendance</h3>
+    </div>
+    <div class="card-body">
+        <form onsubmit="return submitAttendance(event)">
+            <div class="form-group">
+                <label>Sub Area <span class="required">*</span></label>
+                <select id="subAreaSel" class="form-control" required>
+                    <option value="">Select Sub Area...</option>
+                </select>
+                <div class="form-help">Ensure you are physically at this location before checking in.</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="checkinBtn">
+                ✅ Check In
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="attTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sub Area</th>
+                <th>Check-In Time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let subsData = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    
+    try {
+        subsData = await api('GET', `/subareas/coordinator/${session.id}`).catch(() => []);
+        const sel = document.getElementById('subAreaSel');
+        subsData.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.sub_area_name;
+            sel.appendChild(opt);
+        });
+    } catch(e) {}
+    
+    loadAttendance();
+});
+
+async function loadAttendance() {
+    try {
+        const attData = await api('GET', `/attendance/coordinator/${session.id}`).catch(() => []);
+        const tbody = document.querySelector('#attTable tbody');
+        
+        if (!attData.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No attendance history found.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = attData.sort((a,b) => b.id - a.id).map(a => `
+            <tr>
+                <td class="cell-id">#${a.id}</td>
+                <td>SubArea #${a.sub_area_id}</td>
+                <td>${formatDateTime(a.check_in_time)}</td>
+                <td>${boolBadge(a.is_present, 'Verified', 'Pending')}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+async function submitAttendance(e) {
+    e.preventDefault();
+    const btn = document.getElementById('checkinBtn');
+    const sub_area_id = parseInt(document.getElementById('subAreaSel').value);
+    
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+    
+    try {
+        await api('POST', '/attendance', {
+            coordinator_id: session.id,
+            sub_area_id: sub_area_id
+        });
+        showNotification('Attendance submitted successfully');
+        loadAttendance();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Check In';
+    }
+}
+</script>
+{% endblock %}

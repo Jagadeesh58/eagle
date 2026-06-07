@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Eligible Families{% endblock %}
+{% block page_title %}Eligible Families{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search family, area...">
+        </div>
+    </div>
+    <span id="eligibleBadge" class="badge" style="background:var(--success-bg,#ecfdf5);color:var(--success,#10b981);font-size:.85rem;padding:6px 14px;border-radius:20px;">0 Eligible</span>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="eligibleTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Family Name</th>
+                <th>Area / Sub Area</th>
+                <th>Members</th>
+                <th>Per Capita Income</th>
+                <th>Threshold</th>
+                <th>Amount Allocated</th>
+                <th>Delivery</th>
+                <th>Approved On</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="9" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let eligibleData = [];
+let allocData    = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    await Promise.all([loadEligible(), loadAllocations()]);
+    setupTableSearch('searchInput', 'eligibleTable');
+});
+
+async function loadEligible() {
+    try {
+        eligibleData = await api('GET', `/eligible/manager/${session.id}`).catch(() => []);
+        renderTable();
+        document.getElementById('eligibleBadge').textContent = eligibleData.length + ' Eligible';
+    } catch(e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+async function loadAllocations() {
+    try {
+        allocData = await api('GET', `/fund-allocations/manager/${session.id}`).catch(() => []);
+    } catch(e) { allocData = []; }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#eligibleTable tbody');
+    if (!eligibleData.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px;color:var(--text-muted);">
+            <div style="font-size:2rem;margin-bottom:8px;">📋</div>
+            No eligible families recorded yet.
+        </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = eligibleData.map(e => {
+        const alloc = allocData.find(a => a.beneficiary_id === e.beneficiary_id);
+        const amountCell = alloc
+            ? `<span style="color:var(--success,#10b981);font-weight:700;">${formatCurrency(alloc.amount_assigned)}</span>`
+            : `<span class="cell-muted">—</span>`;
+
+        const deliveryIcons = { pending: '⏳', delivered: '📦', completed: '✅' };
+        const deliveryColors = { pending:'var(--warning,#f59e0b)', delivered:'var(--primary)', completed:'var(--success,#10b981)' };
+        const dStatus = e.delivery_status || 'pending';
+
+        return `
+        <tr>
+            <td class="cell-id">#${e.id}</td>
+            <td><strong>${escapeHtml(e.family_name || '—')}</strong></td>
+            <td>
+                <span style="font-size:.8rem;color:var(--text-muted);">${escapeHtml(e.area_name||'—')}</span><br>
+                <span style="font-size:.85rem;">${escapeHtml(e.sub_area_name||'—')}</span>
+            </td>
+            <td>${e.family_members || e.ben_family_members || '—'}</td>
+            <td class="text-warning fw-600">${formatCurrency(e.per_capita_income)}</td>
+            <td class="cell-muted">${formatCurrency(e.approval_threshold)}</td>
+            <td>${amountCell}</td>
+            <td>
+                <span style="color:${deliveryColors[dStatus]};font-weight:600;font-size:.875rem;">
+                    ${deliveryIcons[dStatus]} ${dStatus.charAt(0).toUpperCase()+dStatus.slice(1)}
+                </span>
+            </td>
+            <td class="cell-muted">${formatDate(e.approved_at)}</td>
+        </tr>`;
+    }).join('');
+}
+</script>
+{% endblock %}

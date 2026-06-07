@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Manage Sub Areas{% endblock %}
+{% block page_title %}Sub Areas{% endblock %}
+{% block content %}
+<div class="toolbar">
+    <div class="toolbar-left"></div>
+    <button class="btn btn-primary" onclick="openSubareaModal()">+ Create Sub Area</button>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="subareasTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sub Area Name</th>
+                <th>Parent Area</th>
+                <th>Coordinator 1</th>
+                <th>Assigned Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="subareaModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Create Sub Area</h3>
+            <button class="modal-close" onclick="closeModal('subareaModal')">×</button>
+        </div>
+        <form id="subareaForm" onsubmit="return saveSubarea(event)">
+            <div class="modal-body">
+                <input type="hidden" id="saId">
+                <div class="form-group">
+                    <label>Parent Area <span class="required">*</span></label>
+                    <select id="saArea" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Sub Area Name <span class="required">*</span></label>
+                    <input type="text" id="saName" class="form-control" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Coordinator 1 <span class="required">*</span></label>
+                        <select id="saCoord" class="form-control" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned Date <span class="required">*</span></label>
+                        <input type="date" id="saDate" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('subareaModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Confirm</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let subareasData = [];
+let myAreas = [];
+let myCoords = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    await loadDependencies();
+    loadSubareas();
+});
+
+async function loadDependencies() {
+    try {
+        const [areas, coords] = await Promise.all([
+            api('GET', `/areas/manager/${session.id}`).catch(() => []),
+            api('GET', `/users/manager/${session.id}/coordinators`).catch(() => [])
+        ]);
+        myAreas = areas;
+        myCoords = coords.filter(c => c.role === 'field_coordinator');
+        
+        const areaSel = document.getElementById('saArea');
+        myAreas.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.area_name;
+            areaSel.appendChild(opt);
+        });
+        
+        const coordSel = document.getElementById('saCoord');
+        myCoords.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.name} (#${c.id})`;
+            coordSel.appendChild(opt);
+        });
+    } catch (e) {
+        showNotification('Failed to load dependencies', 'error');
+    }
+}
+
+async function loadSubareas() {
+    try {
+        subareasData = await api('GET', `/subareas/manager/${session.id}`).catch(() => []);
+        renderTable();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#subareasTable tbody');
+    if (!subareasData.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No sub areas found.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = subareasData.map(s => {
+        const area = myAreas.find(a => a.id === s.area_id);
+        const coord = myCoords.find(c => c.id === s.coordinator1_id);
+        
+        return `
+        <tr>
+            <td class="cell-id">#${s.id}</td>
+            <td><strong>${escapeHtml(s.sub_area_name)}</strong></td>
+            <td>${area ? area.area_name : '#'+s.area_id}</td>
+            <td>${coord ? coord.name : '#'+s.coordinator1_id}</td>
+            <td>${formatDate(s.assigned_date)}</td>
+            <td>
+                <div class="actions">
+                    <button class="btn-icon" onclick='editSubarea(${JSON.stringify(s).replace(/'/g, "&#39;")})'>✏️</button>
+                    <button class="btn-icon danger" onclick="deleteSubarea(${s.id})">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+function openSubareaModal() {
+    document.getElementById('subareaForm').reset();
+    document.getElementById('saId').value = '';
+    document.getElementById('saArea').disabled = false;
+    document.getElementById('saDate').disabled = false;
+    document.getElementById('saDate').valueAsDate = new Date();
+    openModal('subareaModal');
+}
+
+function editSubarea(s) {
+    document.getElementById('saId').value = s.id;
+    document.getElementById('saArea').value = s.area_id;
+    document.getElementById('saName').value = s.sub_area_name;
+    document.getElementById('saCoord').value = s.coordinator1_id;
+    document.getElementById('saDate').value = s.assigned_date;
+    
+    document.getElementById('saArea').disabled = true;
+    document.getElementById('saDate').disabled = true;
+    openModal('subareaModal');
+}
+
+async function saveSubarea(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Confirming...';
+    
+    try {
+        const payload = {
+            area_id: parseInt(document.getElementById('saArea').value),
+            sub_area_name: document.getElementById('saName').value,
+            coordinator1_id: parseInt(document.getElementById('saCoord').value),
+            manager_id: session.id,
+            assigned_date: document.getElementById('saDate').value
+        };
+        const id = document.getElementById('saId').value;
+        if (id) {
+            payload.id = parseInt(id);
+            await api('PUT', '/subareas', payload);
+            showNotification('Sub area updated');
+        } else {
+            await api('POST', '/subareas', payload);
+            showNotification('Sub area created');
+        }
+        closeModal('subareaModal');
+        loadSubareas();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+    }
+}
+
+async function deleteSubarea(id) {
+    if (await confirmAction('Delete this sub area?')) {
+        try {
+            await api('DELETE', `/subareas/${id}`);
+            showNotification('Deleted');
+            loadSubareas();
+        } catch (e) {
+            showNotification(e.message, 'error');
+        }
+    }
+}
+</script>
+{% endblock %}

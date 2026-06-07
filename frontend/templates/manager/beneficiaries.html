@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Beneficiaries{% endblock %}
+{% block page_title %}Beneficiaries{% endblock %}
+{% block content %}
+
+<!-- ── Filter Panel ── -->
+<div class="card mb-20">
+    <div class="card-header" style="padding-bottom:0;">
+        <h3>Search & Filter Beneficiaries</h3>
+    </div>
+    <div class="card-body">
+        <div class="form-row" style="gap:14px;flex-wrap:wrap;align-items:flex-end;">
+
+            <!-- Area filter -->
+            <div class="form-group mb-0" style="flex:1;min-width:160px;">
+                <label>Area</label>
+                <select id="fArea" class="form-control" onchange="onAreaChange()">
+                    <option value="">All Areas</option>
+                </select>
+            </div>
+
+            <!-- Sub Area filter (cascades from area) -->
+            <div class="form-group mb-0" style="flex:1;min-width:160px;">
+                <label>Sub Area</label>
+                <select id="fSubArea" class="form-control">
+                    <option value="">All Sub Areas</option>
+                </select>
+            </div>
+
+            <!-- Per Capita Income max -->
+            <div class="form-group mb-0" style="flex:1;min-width:150px;">
+                <label>Per Capita Income ≤ (₹)</label>
+                <input type="number" id="fPCI" class="form-control" placeholder="e.g. 15000" min="0">
+            </div>
+
+            <!-- Approval status -->
+            <div class="form-group mb-0" style="flex:1;min-width:140px;">
+                <label>Status</label>
+                <select id="fStatus" class="form-control">
+                    <option value="">All</option>
+                    <option value="pending">⏳ Pending</option>
+                    <option value="approved">✅ Approved</option>
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <div style="display:flex;gap:8px;margin-bottom:0;">
+                <button class="btn btn-primary" onclick="doSearch()" id="searchBtn">🔍 Search</button>
+                <button class="btn btn-outline" onclick="clearFilters()" title="Clear all filters">✕ Clear</button>
+            </div>
+        </div>
+
+        <!-- Quick search bar -->
+        <div class="search-box mt-14" style="max-width:340px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="quickSearch" placeholder="Quick search by name..." oninput="quickFilter(this.value)">
+        </div>
+    </div>
+</div>
+
+<!-- ── Results Summary ── -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;" id="resultsSummary" style="display:none;">
+    <span id="resultCount" style="color:var(--text-muted);font-size:.875rem;"></span>
+    <span id="approvedCount" style="font-size:.875rem;"></span>
+    <span id="pendingCount"  style="font-size:.875rem;"></span>
+</div>
+
+<!-- ── Table ── -->
+<div class="table-container">
+    <table class="data-table" id="bensTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Family Name</th>
+                <th>Area / Sub Area</th>
+                <th>Members</th>
+                <th>Annual Income</th>
+                <th>Per Capita</th>
+                <th>Eligible</th>
+                <th>Approval</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="9" class="text-center" style="padding:40px;color:var(--text-muted);">
+                    <div style="font-size:2rem;margin-bottom:8px;">🔍</div>
+                    Use the filters above to load beneficiaries.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Approve Modal ── -->
+<div class="modal-overlay" id="approveModal">
+    <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+            <h3>Approve & Allocate Funds</h3>
+            <button class="modal-close" onclick="closeModal('approveModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- Family summary card -->
+            <div id="approveSummary" style="background:var(--bg-alt,#f8fafc);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:18px;">
+                <div style="font-weight:700;font-size:1rem;margin-bottom:6px;" id="approveFamily">—</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.875rem;color:var(--text-muted);">
+                    <span>Members: <strong id="approveMembers" style="color:var(--text);">—</strong></span>
+                    <span>Annual Income: <strong id="approveIncome" style="color:var(--text);">—</strong></span>
+                    <span>Per Capita: <strong id="approvePC" style="color:var(--warning,#f59e0b);">—</strong></span>
+                    <span>Sub Area: <strong id="approveSub" style="color:var(--text);">—</strong></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Fund Allocation Amount (₹) <span class="required">*</span></label>
+                <input type="number" step="100" min="100" id="approveAmount" class="form-control" placeholder="Enter amount to assign">
+                <small class="form-hint" id="fundHint" style="color:var(--text-muted);font-size:.8rem;margin-top:4px;display:block;"></small>
+            </div>
+            <div class="form-group mb-0">
+                <label>Note <small style="font-weight:400;color:var(--text-muted);">(optional)</small></label>
+                <input type="text" id="approveNote" class="form-control" placeholder="e.g. Livestock support Q2">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('approveModal')">Cancel</button>
+            <button class="btn btn-success" id="confirmApproveBtn" onclick="confirmApprove()">✅ Confirm Approval</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let bensData     = [];
+let visibleData  = [];
+let allSubareas  = [];   // all subareas under this manager
+let myAreas      = [];
+let currentBen   = null; // beneficiary being approved
+let fundInfo     = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    session = getSession();
+    if (!session) return;
+    await Promise.all([loadAreas(), loadFund()]);
+    // Load all by default
+    doSearch();
+});
+
+// ── Load areas ──────────────────────────────────────────────
+async function loadAreas() {
+    try {
+        myAreas = await api('GET', `/areas/manager/${session.id}`).catch(() => []);
+        allSubareas = await api('GET', `/subareas/manager/${session.id}`).catch(() => []);
+
+        const sel = document.getElementById('fArea');
+        myAreas.forEach(a => {
+            const o = document.createElement('option');
+            o.value = a.id; o.textContent = a.area_name;
+            sel.appendChild(o);
+        });
+        populateSubareas('');
+    } catch(e) {}
+}
+
+function populateSubareas(areaId) {
+    const sel = document.getElementById('fSubArea');
+    sel.innerHTML = '<option value="">All Sub Areas</option>';
+    const filtered = areaId ? allSubareas.filter(s => s.area_id == areaId) : allSubareas;
+    filtered.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.sub_area_name;
+        sel.appendChild(o);
+    });
+}
+
+function onAreaChange() {
+    const aId = document.getElementById('fArea').value;
+    populateSubareas(aId);
+    document.getElementById('fSubArea').value = '';
+}
+
+// ── Load manager's fund ──────────────────────────────────────
+async function loadFund() {
+    try {
+        fundInfo = await api('GET', `/funds/manager/${session.id}`).catch(() => null);
+    } catch(e) { fundInfo = null; }
+}
+
+// ── Search / Filter ──────────────────────────────────────────
+async function doSearch() {
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Searching...';
+
+    const tbody = document.querySelector('#bensTable tbody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center"><div class="spinner"></div></td></tr>';
+
+    const payload = { manager_id: session.id };
+
+    const aId  = document.getElementById('fArea').value;
+    const saId = document.getElementById('fSubArea').value;
+    const pci  = document.getElementById('fPCI').value;
+    const stat = document.getElementById('fStatus').value;
+
+    if (aId)  payload.area_id     = parseInt(aId);
+    if (saId) payload.sub_area_id = parseInt(saId);
+    if (pci)  payload.per_capita_max = parseFloat(pci);
+    if (stat === 'approved') payload.is_approved = true;
+    if (stat === 'pending')  payload.is_approved = false;
+
+    try {
+        bensData    = await api('POST', '/beneficiaries/search', payload);
+        visibleData = [...bensData];
+        renderTable(visibleData);
+        updateSummary(visibleData);
+    } catch(err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">${escapeHtml(err.message)}</td></tr>`;
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔍 Search';
+    }
+}
+
+function clearFilters() {
+    document.getElementById('fArea').value    = '';
+    document.getElementById('fSubArea').value = '';
+    document.getElementById('fPCI').value     = '';
+    document.getElementById('fStatus').value  = '';
+    document.getElementById('quickSearch').value = '';
+    populateSubareas('');
+    doSearch();
+}
+
+function quickFilter(q) {
+    if (!q) { visibleData = [...bensData]; }
+    else {
+        const lq = q.toLowerCase();
+        visibleData = bensData.filter(b =>
+            (b.family_name||'').toLowerCase().includes(lq) ||
+            (b.area_name||'').toLowerCase().includes(lq) ||
+            (b.sub_area_name||'').toLowerCase().includes(lq)
+        );
+    }
+    renderTable(visibleData);
+    updateSummary(visibleData);
+}
+
+// ── Render ───────────────────────────────────────────────────
+function renderTable(data) {
+    const tbody = document.querySelector('#bensTable tbody');
+    if (!data || !data.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px;color:var(--text-muted);">
+            <div style="font-size:2rem;margin-bottom:8px;">📭</div>
+            No beneficiaries match your criteria.
+        </td></tr>`;
+        return;
+    }
+
+    const pciLimit = parseFloat(document.getElementById('fPCI').value) || null;
+
+    tbody.innerHTML = data.map(b => {
+        const pc      = b.per_capita_income != null ? parseFloat(b.per_capita_income) : (b.family_members > 0 ? b.annual_income / b.family_members : 0);
+        const eligible = pciLimit !== null ? (pc <= pciLimit) : null;
+
+        // Eligible cell
+        let eligibleCell;
+        if (eligible === true)       eligibleCell = `<span title="Eligible" style="font-size:1.3rem;cursor:default;">✅</span>`;
+        else if (eligible === false)  eligibleCell = `<span title="Not eligible at this threshold" style="font-size:1.3rem;cursor:default;">❌</span>`;
+        else                          eligibleCell = `<span style="color:var(--text-muted);font-size:.8rem;">— set limit</span>`;
+
+        // Approval cell
+        const approvalCell = b.is_approved
+            ? `<span title="Approved" style="font-size:1.3rem;cursor:default;">✅</span>`
+            : `<span title="Pending Approval" style="font-size:1.3rem;cursor:default;">❌</span>`;
+
+        // Action cell
+        const actionCell = b.is_approved
+            ? `<span style="color:var(--success,#10b981);font-weight:600;font-size:.82rem;">✓ Approved</span>`
+            : `<button class="btn btn-success btn-sm" onclick="openApproveModal(${b.id})">Approve ✅</button>`;
+
+        return `
+        <tr>
+            <td class="cell-id">#${b.id}</td>
+            <td><strong>${escapeHtml(b.family_name)}</strong></td>
+            <td>
+                <span style="font-size:.8rem;color:var(--text-muted);">${escapeHtml(b.area_name||'—')}</span><br>
+                <span style="font-size:.85rem;">${escapeHtml(b.sub_area_name||'—')}</span>
+            </td>
+            <td>${b.family_members}</td>
+            <td>${formatCurrency(b.annual_income)}</td>
+            <td class="text-warning fw-600">${formatCurrency(pc)}</td>
+            <td style="text-align:center;">${eligibleCell}</td>
+            <td style="text-align:center;">${approvalCell}</td>
+            <td>${actionCell}</td>
+        </tr>`;
+    }).join('');
+}
+
+function updateSummary(data) {
+    const tot  = data.length;
+    const appr = data.filter(b => b.is_approved).length;
+    const pend = tot - appr;
+
+    document.getElementById('resultCount').textContent   = `${tot} result${tot !== 1 ? 's' : ''}`;
+    document.getElementById('approvedCount').innerHTML   = `<span style="color:var(--success,#10b981);">✅ ${appr} Approved</span>`;
+    document.getElementById('pendingCount').innerHTML    = `<span style="color:var(--danger,#ef4444);">❌ ${pend} Pending</span>`;
+    document.getElementById('resultsSummary').style.display = 'flex';
+}
+
+// ── Approve Modal ─────────────────────────────────────────────
+function openApproveModal(benId) {
+    currentBen = bensData.find(b => b.id === benId);
+    if (!currentBen) return;
+
+    const pc = currentBen.per_capita_income != null
+        ? parseFloat(currentBen.per_capita_income)
+        : (currentBen.family_members > 0 ? currentBen.annual_income / currentBen.family_members : 0);
+
+    const suggested = Math.round(currentBen.family_members * 5000 / 100) * 100; // ₹5000 per member, rounded
+
+    document.getElementById('approveFamily').textContent  = currentBen.family_name;
+    document.getElementById('approveMembers').textContent = currentBen.family_members;
+    document.getElementById('approveIncome').textContent  = formatCurrency(currentBen.annual_income);
+    document.getElementById('approvePC').textContent      = formatCurrency(pc);
+    document.getElementById('approveSub').textContent     = currentBen.sub_area_name || '—';
+    document.getElementById('approveAmount').value        = suggested;
+    document.getElementById('approveNote').value          = '';
+
+    const rem = fundInfo ? (parseFloat(fundInfo.total_amount||0) - parseFloat(fundInfo.spent_amount||0)) : null;
+    if (rem !== null) {
+        document.getElementById('fundHint').textContent =
+            `Remaining budget: ${formatCurrency(rem)}. Suggested: ₹${suggested.toLocaleString('en-IN')} (₹5,000 × ${currentBen.family_members} members).`;
+    } else {
+        document.getElementById('fundHint').textContent = 'Note: No fund assigned yet. Approval will proceed, but deduction will fail.';
+    }
+
+    openModal('approveModal');
+}
+
+async function confirmApprove() {
+    if (!currentBen) return;
+    const btn = document.getElementById('confirmApproveBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Confirming...';
+
+    const amount = parseFloat(document.getElementById('approveAmount').value);
+    if (!amount || amount <= 0) {
+        showNotification('Enter a valid allocation amount', 'error');
+        btn.disabled = false;
+        btn.textContent = '✅ Confirm Approval';
+        return;
+    }
+
+    const pc = currentBen.per_capita_income != null
+        ? parseFloat(currentBen.per_capita_income)
+        : (currentBen.family_members > 0 ? currentBen.annual_income / currentBen.family_members : 0);
+
+    const pciLimit = parseFloat(document.getElementById('fPCI').value) || pc;
+
+    try {
+        // 1. Approve beneficiary
+        await api('PUT', `/beneficiaries/approve/${currentBen.id}`);
+
+        // 2. Add to eligible families
+        await api('POST', '/eligible', {
+            beneficiary_id:    currentBen.id,
+            per_capita_income: pc,
+            approval_threshold: pciLimit,
+            approved_by:        session.id
+        }).catch(() => {}); // non-fatal if already exists
+
+        // 3. Deduct from fund and record allocation
+        if (fundInfo) {
+            await api('POST', '/fund-allocations', {
+                fund_id:          fundInfo.id,
+                manager_id:       session.id,
+                beneficiary_id:   currentBen.id,
+                family_name:      currentBen.family_name,
+                family_members:   currentBen.family_members,
+                per_capita_income: pc,
+                amount_assigned:  amount,
+                allocated_by:     session.id
+            });
+        }
+
+        showNotification(`✅ ${currentBen.family_name} approved — ${formatCurrency(amount)} allocated`);
+        closeModal('approveModal');
+        await loadFund();
+        doSearch();
+    } catch(e) {
+        showNotification(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Confirm Approval';
+    }
+}
+</script>
+{% endblock %}

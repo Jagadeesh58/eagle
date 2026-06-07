@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Deliveries{% endblock %}
+{% block page_title %}Deliveries{% endblock %}
+{% block content %}
+<div class="toolbar">
+    <div class="toolbar-left"></div>
+    <button class="btn btn-primary" onclick="openDeliveryModal()">+ New Delivery Record</button>
+</div>
+
+<div class="table-container">
+    <table class="data-table" id="delTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Beneficiary ID</th>
+                <th>Livestock Type</th>
+                <th>Delivered</th>
+                <th>Upskill Done</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: New Delivery -->
+<div class="modal-overlay" id="delModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>New Delivery Record</h3>
+            <button class="modal-close" onclick="closeModal('delModal')">×</button>
+        </div>
+        <form id="delForm" onsubmit="return saveDelivery(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Beneficiary ID <span class="required">*</span></label>
+                    <input type="number" id="dBen" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Livestock Type <span class="required">*</span></label>
+                    <input type="text" id="dType" class="form-control" placeholder="e.g. Goats, Poultry" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('delModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Update Notes -->
+<div class="modal-overlay" id="notesModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="notesTitle">Update Status</h3>
+            <button class="modal-close" onclick="closeModal('notesModal')">×</button>
+        </div>
+        <form onsubmit="return submitNotes(event)">
+            <div class="modal-body">
+                <input type="hidden" id="nId">
+                <input type="hidden" id="nType"> <!-- 'deliver' or 'upskill' -->
+                <div class="form-group">
+                    <label>Notes / Comments <span class="required">*</span></label>
+                    <input type="text" id="nText" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('notesModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="notesBtn">Update Status</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let delData = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    session = getSession();
+    if (!session) return;
+    loadDeliveries();
+});
+
+async function loadDeliveries() {
+    try {
+        delData = await api('GET', `/delivery/coordinator/${session.id}`).catch(() => []);
+        renderTable();
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#delTable tbody');
+    if (!delData.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No deliveries found.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = delData.map(d => `
+        <tr>
+            <td class="cell-id">#${d.id}</td>
+            <td><strong>#${d.beneficiary_id}</strong></td>
+            <td>${d.livestock_type}</td>
+            <td>${boolBadge(d.delivered, 'Yes', 'No')}</td>
+            <td>${boolBadge(d.upskill_done, 'Yes', 'No')}</td>
+            <td class="cell-muted" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(d.notes || '')}">
+                ${escapeHtml(d.notes || '—')}
+            </td>
+            <td>
+                <div class="actions">
+                    ${!d.delivered ? `<button class="btn btn-success btn-sm" onclick="openNotesModal(${d.id}, 'deliver')">Mark Delivered</button>` : ''}
+                    ${!d.upskill_done ? `<button class="btn btn-primary btn-sm" onclick="openNotesModal(${d.id}, 'upskill')">Mark Trained</button>` : ''}
+                    <button class="btn-icon danger" onclick="deleteDelivery(${d.id})">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openDeliveryModal() {
+    document.getElementById('delForm').reset();
+    openModal('delModal');
+}
+
+async function saveDelivery(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    
+    try {
+        await api('POST', '/delivery', {
+            beneficiary_id: parseInt(document.getElementById('dBen').value),
+            coordinator2_id: session.id,
+            livestock_type: document.getElementById('dType').value
+        });
+        showNotification('Record created');
+        closeModal('delModal');
+        loadDeliveries();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function openNotesModal(id, type) {
+    document.getElementById('nId').value = id;
+    document.getElementById('nType').value = type;
+    document.getElementById('nText').value = '';
+    document.getElementById('notesTitle').textContent = type === 'deliver' ? 'Mark as Delivered' : 'Mark Training Done';
+    openModal('notesModal');
+}
+
+async function submitNotes(e) {
+    e.preventDefault();
+    const btn = document.getElementById('notesBtn');
+    btn.disabled = true;
+    
+    try {
+        const id = document.getElementById('nId').value;
+        const type = document.getElementById('nType').value;
+        const notes = document.getElementById('nText').value;
+        
+        await api('PUT', `/delivery/${type}/${id}`, { notes });
+        showNotification('Status updated successfully');
+        closeModal('notesModal');
+        loadDeliveries();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function deleteDelivery(id) {
+    if (await confirmAction('Delete this record?')) {
+        try {
+            await api('DELETE', `/delivery/${id}`);
+            showNotification('Deleted');
+            loadDeliveries();
+        } catch (e) {
+            showNotification(e.message, 'error');
+        }
+    }
+}
+</script>
+{% endblock %}

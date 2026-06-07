@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}My Funds{% endblock %}
+{% block page_title %}Budget & Funds{% endblock %}
+{% block content %}
+
+<!-- ── Stats row ── -->
+<div class="stats-grid" id="fundStats">
+    <div class="stat-card primary">
+        <div class="stat-icon">💰</div>
+        <div class="stat-number" id="fTotal">—</div>
+        <div class="stat-label">Total Allocated</div>
+    </div>
+    <div class="stat-card danger">
+        <div class="stat-icon">📉</div>
+        <div class="stat-number" id="fSpent">—</div>
+        <div class="stat-label">Spent / Allocated</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">🏦</div>
+        <div class="stat-number" id="fRem">—</div>
+        <div class="stat-label">Remaining Balance</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid var(--warning,#f59e0b)">
+        <div class="stat-icon">👨‍👩‍👧‍👦</div>
+        <div class="stat-number" id="fFamilies">—</div>
+        <div class="stat-label">Families Funded</div>
+    </div>
+</div>
+
+<!-- ── Budget utilisation bar ── -->
+<div class="card mt-24 mb-24">
+    <div class="card-body" style="padding:16px 24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:600;font-size:.9rem;color:var(--text)">Budget Utilisation</span>
+            <span id="fUtilPct" style="font-size:.85rem;color:var(--text-muted)">0%</span>
+        </div>
+        <div style="height:10px;background:var(--border);border-radius:99px;overflow:hidden;">
+            <div id="fUtilBar" style="height:100%;width:0%;background:var(--primary);border-radius:99px;transition:width .5s ease;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Family Fund Allocation Records ── -->
+<div class="card mt-0">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <h3 style="margin:0">Family Fund Allocation Records</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="search-box" style="min-width:200px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="allocSearch" placeholder="Search family..." oninput="filterAllocTable(this.value)">
+            </div>
+            <span class="badge" id="allocCount" style="background:var(--primary-bg,#eff6ff);color:var(--primary);font-size:.8rem;padding:4px 10px;border-radius:20px;">0 records</span>
+        </div>
+    </div>
+    <div class="table-container" style="border-radius:0 0 12px 12px;border:none;">
+        <table class="data-table" id="allocTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Family Name</th>
+                    <th>Members</th>
+                    <th>Per Capita Income</th>
+                    <th>Amount Allocated</th>
+                    <th>Allocated On</th>
+                    <th>By</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Manual Deduction Panel ── -->
+<div class="card mt-24">
+    <div class="card-header">
+        <h3>Manual Expense Entry</h3>
+    </div>
+    <div class="card-body">
+        <p style="color:var(--text-muted);font-size:.875rem;margin-bottom:16px;">
+            Record any operational expense (logistics, equipment, etc.) that is not tied to a specific family allocation.
+        </p>
+        <form onsubmit="return spendFund(event)" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;max-width:520px;">
+            <div class="form-group mb-0" style="flex:1;min-width:180px;">
+                <label>Amount (₹) <span class="required">*</span></label>
+                <input type="number" step="0.01" min="1" id="spendAmount" class="form-control" placeholder="e.g. 5000" required>
+            </div>
+            <div class="form-group mb-0" style="flex:2;min-width:200px;">
+                <label>Description</label>
+                <input type="text" id="spendNote" class="form-control" placeholder="Optional note">
+            </div>
+            <button type="submit" class="btn btn-warning" id="spendBtn" style="white-space:nowrap;">Deduct Expense</button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let session;
+let allocData = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    session = getSession();
+    if (!session) return;
+    loadFund();
+    loadAllocations();
+});
+
+async function loadFund() {
+    try {
+        const f = await api('GET', `/funds/manager/${session.id}`);
+        if (!f) {
+            setStats(0, 0, 0);
+            return;
+        }
+        const total = parseFloat(f.total_amount || 0);
+        const spent = parseFloat(f.spent_amount || 0);
+        const rem   = total - spent;
+        setStats(total, spent, rem);
+    } catch (e) {
+        setStats(0, 0, 0);
+    }
+}
+
+function setStats(total, spent, rem) {
+    document.getElementById('fTotal').textContent = formatCurrency(total);
+    document.getElementById('fSpent').textContent = formatCurrency(spent);
+    document.getElementById('fRem').textContent   = formatCurrency(rem);
+
+    const pct = total > 0 ? Math.min(100, Math.round((spent / total) * 100)) : 0;
+    document.getElementById('fUtilPct').textContent = pct + '%';
+    const bar = document.getElementById('fUtilBar');
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warning,#f59e0b)' : 'var(--primary)';
+}
+
+async function loadAllocations() {
+    try {
+        allocData = await api('GET', `/fund-allocations/manager/${session.id}`).catch(() => []);
+        renderAllocTable(allocData);
+        document.getElementById('fFamilies').textContent = allocData.length;
+        document.getElementById('allocCount').textContent = allocData.length + ' records';
+    } catch (e) {
+        renderAllocTable([]);
+    }
+}
+
+function renderAllocTable(data) {
+    const tbody = document.querySelector('#allocTable tbody');
+    if (!data || !data.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:32px;color:var(--text-muted);">
+            <div style="font-size:2rem;margin-bottom:8px;">📭</div>
+            No fund allocations recorded yet.<br>
+            <small>Allocations appear here when you approve beneficiary families.</small>
+        </td></tr>`;
+        return;
+    }
+    tbody.innerHTML = data.map((r, i) => `
+        <tr>
+            <td class="cell-id">#${r.id}</td>
+            <td><strong>${escapeHtml(r.family_name || r.ben_family_name || '—')}</strong></td>
+            <td><span class="badge" style="background:var(--primary-bg,#eff6ff);color:var(--primary);font-weight:600;">${r.family_members || r.ben_family_members || '—'}</span></td>
+            <td class="text-warning fw-600">${formatCurrency(r.per_capita_income)}</td>
+            <td><span style="font-weight:700;color:var(--success,#10b981);">− ${formatCurrency(r.amount_assigned)}</span></td>
+            <td class="cell-muted">${formatDateTime(r.allocated_at)}</td>
+            <td class="cell-muted">${escapeHtml(r.allocated_by_name || '—')}</td>
+        </tr>
+    `).join('');
+}
+
+function filterAllocTable(q) {
+    const filtered = allocData.filter(r => {
+        const text = `${r.family_name||''} ${r.ben_family_name||''} ${r.allocated_by_name||''}`.toLowerCase();
+        return text.includes(q.toLowerCase());
+    });
+    renderAllocTable(filtered);
+}
+
+async function spendFund(e) {
+    e.preventDefault();
+    const btn  = document.getElementById('spendBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    try {
+        const amt = parseFloat(document.getElementById('spendAmount').value);
+        await api('PUT', '/funds/spend', { manager_id: session.id, amount_spent: amt });
+        showNotification(`Expense of ${formatCurrency(amt)} recorded`);
+        document.getElementById('spendAmount').value = '';
+        document.getElementById('spendNote').value   = '';
+        loadFund();
+    } catch(err) {
+        showNotification(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Deduct Expense';
+    }
+}
+</script>
+{% endblock %}

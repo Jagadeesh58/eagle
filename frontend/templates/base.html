@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="EAGL — Poverty Relief and Livestock Delivery Management System">
+    <title>{% block title %}EAGL{% endblock %} — EAGL Management System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- ======== SIDEBAR ======== -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">🦅</div>
+                EAGL
+            </div>
+            <div class="tagline">Management System</div>
+        </div>
+
+        <ul class="nav-menu">
+
+            {# ---- ADMIN NAV ---- #}
+            {% if user.role == 'admin' %}
+            <li class="nav-section">Administration</li>
+            <li><a href="/admin/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="/admin/users"><span class="nav-icon">👥</span> Users</a></li>
+            <li><a href="/admin/areas"><span class="nav-icon">🗺️</span> Areas</a></li>
+            <li><a href="/admin/funds"><span class="nav-icon">💰</span> Funds</a></li>
+            {% endif %}
+
+            {# ---- MANAGER NAV ---- #}
+            {% if user.role == 'manager' %}
+            <li class="nav-section">Management</li>
+            <li><a href="/manager/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="/manager/subareas"><span class="nav-icon">📍</span> Sub Areas</a></li>
+            <li><a href="/manager/beneficiaries"><span class="nav-icon">👨‍👩‍👧‍👦</span> Beneficiaries</a></li>
+            <li><a href="/manager/eligible"><span class="nav-icon">✅</span> Eligible Families</a></li>
+            <li class="nav-section">Coordinators</li>
+            <li><a href="/manager/attendance"><span class="nav-icon">📋</span> Attendance</a></li>
+            <li><a href="/manager/assignments"><span class="nav-icon">📝</span> Assignments</a></li>
+            <li class="nav-section">Finance</li>
+            <li><a href="/manager/funds"><span class="nav-icon">💰</span> My Funds</a></li>
+            {% endif %}
+
+            {# ---- FIELD COORDINATOR NAV ---- #}
+            {% if user.role == 'field_coordinator' %}
+            <li class="nav-section">Field Work</li>
+            <li><a href="/coordinator/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="/coordinator/attendance"><span class="nav-icon">📋</span> Attendance</a></li>
+            <li><a href="/coordinator/beneficiaries"><span class="nav-icon">👨‍👩‍👧‍👦</span> Add Families</a></li>
+            {% endif %}
+
+            {# ---- DELIVERY COORDINATOR NAV ---- #}
+            {% if user.role == 'delivery_coordinator' %}
+            <li class="nav-section">Delivery Work</li>
+            <li><a href="/coordinator/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="/coordinator/assignments"><span class="nav-icon">📝</span> My Assignments</a></li>
+            <li><a href="/coordinator/deliveries"><span class="nav-icon">🚛</span> Deliveries</a></li>
+            {% endif %}
+
+        </ul>
+
+        <!-- ======== SIDEBAR FOOTER — Clickable Profile ======== -->
+        <div class="sidebar-footer" onclick="openProfileModal()" title="View Profile">
+            <div class="user-avatar" id="sidebarAvatar">{{ user.name[0] | upper }}</div>
+            <div class="user-meta">
+                <div class="name">{{ user.name }}</div>
+                <div class="role-text">{{ user.role | replace('_', ' ') | title }}</div>
+            </div>
+            <div class="profile-caret">⚙</div>
+        </div>
+    </nav>
+
+    <!-- ======== MAIN CONTENT ======== -->
+    <div class="main-content">
+        <header class="topbar">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text); padding: 0;">☰</button>
+                <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
+            </div>
+            <div class="user-info">
+                <span id="topUserName">{{ user.name }}</span>
+                <span class="role-badge" id="topUserRole">{{ user.role | replace('_', ' ') | title }}</span>
+                <button class="topbar-profile-btn" onclick="openProfileModal()" title="Profile">
+                    <span id="topbarAvatar">{{ user.name[0] | upper }}</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ======================================================
+     PROFILE MODAL
+     ====================================================== -->
+<div class="modal-overlay" id="profileModal">
+    <div class="modal profile-modal">
+        <div class="modal-header">
+            <h3>My Profile</h3>
+            <button class="modal-close" onclick="closeModal('profileModal')">✕</button>
+        </div>
+        <div class="modal-body">
+
+            <!-- Profile Avatar Banner -->
+            <div class="profile-banner">
+                <div class="profile-avatar-lg" id="profileAvatarLg">U</div>
+                <div class="profile-banner-info">
+                    <div class="profile-banner-name" id="profileBannerName">—</div>
+                    <div class="profile-banner-role" id="profileBannerRole">—</div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="profile-tabs">
+                <button class="profile-tab active" onclick="switchProfileTab('info', this)">👤 Basic Info</button>
+                <button class="profile-tab" onclick="switchProfileTab('edit', this)">✏️ Edit Profile</button>
+                <button class="profile-tab" onclick="switchProfileTab('security', this)">🔐 Security</button>
+            </div>
+
+            <!-- ── TAB: Basic Info ── -->
+            <div class="profile-tab-panel active" id="tabInfo">
+                <div class="profile-info-grid">
+                    <div class="profile-info-item">
+                        <div class="pii-label">Full Name</div>
+                        <div class="pii-value" id="infoName">—</div>
+                    </div>
+                    <div class="profile-info-item">
+                        <div class="pii-label">Email Address</div>
+                        <div class="pii-value" id="infoEmail">—</div>
+                    </div>
+                    <div class="profile-info-item">
+                        <div class="pii-label">Mobile Number</div>
+                        <div class="pii-value" id="infoMobile">—</div>
+                    </div>
+                    <div class="profile-info-item">
+                        <div class="pii-label">Role</div>
+                        <div class="pii-value" id="infoRole">—</div>
+                    </div>
+                </div>
+
+                <div class="profile-section-title">Account Details</div>
+                <div class="profile-info-grid">
+                    <div class="profile-info-item">
+                        <div class="pii-label">User ID</div>
+                        <div class="pii-value pii-mono" id="infoId">—</div>
+                    </div>
+                    <div class="profile-info-item">
+                        <div class="pii-label">Account Status</div>
+                        <div class="pii-value"><span class="badge badge-success">Active</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── TAB: Edit Profile ── -->
+            <div class="profile-tab-panel" id="tabEdit">
+                <div class="form-group">
+                    <label>Full Name <span class="required">*</span></label>
+                    <input type="text" id="editName" class="form-control" placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="editEmail" class="form-control" disabled
+                           style="opacity:0.6; cursor:not-allowed;" title="Email cannot be changed. Contact admin.">
+                    <small class="form-hint">Email address cannot be changed. Contact Administrator.</small>
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number</label>
+                    <input type="tel" id="editMobile" class="form-control" placeholder="+91 98765 43210"
+                           pattern="[0-9+\- ]{7,15}">
+                </div>
+                <div class="profile-edit-msg" id="editProfileMsg"></div>
+                <button class="btn btn-primary" onclick="saveProfileInfo()">Save Changes</button>
+            </div>
+
+            <!-- ── TAB: Security (Change Password) ── -->
+            <div class="profile-tab-panel" id="tabSecurity">
+                <div class="security-desc">Update your account password. Use a strong password with letters, numbers, and symbols.</div>
+
+                <div class="form-group">
+                    <label>Current Password <span class="required">*</span></label>
+                    <div class="password-input-wrap">
+                        <input type="password" id="secOldPwd" class="form-control"
+                               placeholder="Enter current password">
+                        <button type="button" class="toggle-pwd" onclick="togglePwd('secOldPwd', this)">👁</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password <span class="required">*</span></label>
+                    <div class="password-input-wrap">
+                        <input type="password" id="secNewPwd" class="form-control"
+                               placeholder="Min. 6 characters" oninput="updatePwdStrength(this)">
+                        <button type="button" class="toggle-pwd" onclick="togglePwd('secNewPwd', this)">👁</button>
+                    </div>
+                    <div class="pwd-strength" id="secPwdStrength"></div>
+                </div>
+                <div class="form-group">
+                    <label>Re-enter New Password <span class="required">*</span></label>
+                    <div class="password-input-wrap">
+                        <input type="password" id="secConfirmPwd" class="form-control"
+                               placeholder="Repeat new password" oninput="checkPwdMatch()">
+                        <button type="button" class="toggle-pwd" onclick="togglePwd('secConfirmPwd', this)">👁</button>
+                    </div>
+                    <div class="pwd-match-hint" id="secMatchHint"></div>
+                </div>
+                <div class="profile-edit-msg" id="securityMsg"></div>
+                <button class="btn btn-primary" onclick="saveNewPassword()">Update Password</button>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer — Logout -->
+        <div class="modal-footer profile-modal-footer">
+            <button class="btn btn-danger btn-logout-profile" onclick="confirmLogout()">
+                ⏻ &nbsp;Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+<script>
+    // ── Load session into profile modal when page loads ──
+    document.addEventListener('DOMContentLoaded', () => {
+        const session = getSession();
+        if (session) {
+            setupNavigation();
+            loadProfileFromSession(session);
+        }
+    });
+
+    function loadProfileFromSession(session) {
+        const roleLabel = (session.role || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const initial   = (session.name || 'U')[0].toUpperCase();
+
+        document.getElementById('profileAvatarLg').textContent = initial;
+        document.getElementById('profileBannerName').textContent = session.name || '—';
+        document.getElementById('profileBannerRole').textContent = roleLabel;
+
+        document.getElementById('infoName').textContent  = session.name  || '—';
+        document.getElementById('infoEmail').textContent = session.email || '—';
+        document.getElementById('infoMobile').textContent = session.mobile || 'Not provided';
+        document.getElementById('infoRole').innerHTML    = roleBadge(session.role);
+        document.getElementById('infoId').textContent    = '#' + session.id;
+
+        // Pre-fill edit form
+        document.getElementById('editName').value   = session.name  || '';
+        document.getElementById('editEmail').value  = session.email || '';
+        document.getElementById('editMobile').value = session.mobile || '';
+
+        // Topbar avatar
+        const topAvatar = document.getElementById('topbarAvatar');
+        if (topAvatar) topAvatar.textContent = initial;
+    }
+
+    function openProfileModal() {
+        const session = getSession();
+        if (session) loadProfileFromSession(session);
+        // Reset to first tab
+        switchProfileTab('info', document.querySelector('.profile-tab'));
+        openModal('profileModal');
+    }
+
+    function switchProfileTab(tab, btn) {
+        document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.profile-tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        // Clear messages when switching
+        ['editProfileMsg', 'securityMsg'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.textContent = ''; el.className = 'profile-edit-msg'; }
+        });
+    }
+
+    function togglePwd(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+        else                         { inp.type = 'password'; btn.textContent = '👁'; }
+    }
+
+    function updatePwdStrength(input) {
+        const val = input.value;
+        const el  = document.getElementById('secPwdStrength');
+        if (!val) { el.textContent = ''; el.className = 'pwd-strength'; return; }
+        let score = 0;
+        if (val.length >= 6)  score++;
+        if (val.length >= 10) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        const levels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+        const cls    = ['', 'weak', 'fair', 'good', 'strong', 'very-strong'];
+        el.textContent = 'Strength: ' + (levels[score] || 'Weak');
+        el.className = 'pwd-strength ' + (cls[score] || 'weak');
+    }
+
+    function checkPwdMatch() {
+        const np  = document.getElementById('secNewPwd').value;
+        const cp  = document.getElementById('secConfirmPwd').value;
+        const el  = document.getElementById('secMatchHint');
+        if (!cp) { el.textContent = ''; return; }
+        if (cp === np) { el.textContent = '✓ Passwords match'; el.className = 'pwd-match-hint match-ok'; }
+        else           { el.textContent = '✕ Passwords do not match'; el.className = 'pwd-match-hint match-fail'; }
+    }
+
+    async function saveProfileInfo() {
+        const session = getSession();
+        const msgEl   = document.getElementById('editProfileMsg');
+        const name    = document.getElementById('editName').value.trim();
+        const mobile  = document.getElementById('editMobile').value.trim();
+
+        if (!name) {
+            msgEl.textContent = 'Full name is required.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+            return;
+        }
+
+        try {
+            const updated = await api('PUT', '/users/profile', {
+                user_id: session.id,
+                name:    name,
+                mobile:  mobile || null
+            });
+
+            // Refresh session cookies
+            setCookie('user_name',   updated.name);
+            setCookie('user_mobile', updated.mobile || '');
+
+            // Refresh UI
+            const sess2 = getSession();
+            if (sess2) { sess2.name = updated.name; sess2.mobile = updated.mobile; }
+            loadProfileFromSession({ ...session, name: updated.name, mobile: updated.mobile });
+            setupNavigation();
+
+            msgEl.textContent = '✓ Profile updated successfully!';
+            msgEl.className   = 'profile-edit-msg msg-success visible';
+        } catch (err) {
+            msgEl.textContent = err.message || 'Failed to update profile.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+        }
+    }
+
+    async function saveNewPassword() {
+        const session = getSession();
+        const msgEl   = document.getElementById('securityMsg');
+        const oldPwd  = document.getElementById('secOldPwd').value;
+        const newPwd  = document.getElementById('secNewPwd').value;
+        const confPwd = document.getElementById('secConfirmPwd').value;
+
+        msgEl.textContent = '';
+        msgEl.className   = 'profile-edit-msg';
+
+        if (!oldPwd || !newPwd || !confPwd) {
+            msgEl.textContent = 'Please fill in all password fields.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+            return;
+        }
+        if (newPwd.length < 6) {
+            msgEl.textContent = 'New password must be at least 6 characters.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+            return;
+        }
+        if (newPwd !== confPwd) {
+            msgEl.textContent = 'New password and confirmation do not match.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+            return;
+        }
+        if (oldPwd === newPwd) {
+            msgEl.textContent = 'New password must be different from the current one.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+            return;
+        }
+
+        try {
+            await api('POST', '/users/change-password', {
+                user_id:      session.id,
+                old_password: oldPwd,
+                new_password: newPwd
+            });
+
+            // Clear fields
+            ['secOldPwd', 'secNewPwd', 'secConfirmPwd'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('secPwdStrength').textContent = '';
+            document.getElementById('secMatchHint').textContent   = '';
+
+            msgEl.textContent = '✓ Password updated successfully!';
+            msgEl.className   = 'profile-edit-msg msg-success visible';
+        } catch (err) {
+            msgEl.textContent = err.message || 'Failed to update password.';
+            msgEl.className   = 'profile-edit-msg msg-error visible';
+        }
+    }
+
+    function confirmLogout() {
+        if (window.confirm('Are you sure you want to sign out?')) {
+            logout();
+        }
+    }
+</script>
+</body>
+</html>

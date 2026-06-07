@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to EAGL Management System — Poverty Relief and Livestock Delivery">
+    <title>Login — EAGL Management System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="login-page">
+
+    <!-- Left Panel — Branding -->
+    <div class="login-left">
+        <div class="brand">EAGL</div>
+        <p class="brand-desc">
+            Empowering communities through strategic livelihood creation, 
+            poverty relief, and livestock delivery management.
+        </p>
+        <div class="features">
+            <div class="feature-item">
+                <div class="fi-icon">📊</div>
+                <span>Real-time project tracking and reporting</span>
+            </div>
+            <div class="feature-item">
+                <div class="fi-icon">📍</div>
+                <span>Streamlined attendance tracking</span>
+            </div>
+            <div class="feature-item">
+                <div class="fi-icon">🚛</div>
+                <span>End-to-end livestock delivery management</span>
+            </div>
+            <div class="feature-item">
+                <div class="fi-icon">💰</div>
+                <span>Budget allocation and fund tracking</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel — Login Form -->
+    <div class="login-right">
+        <div class="login-card">
+            <h2>Welcome</h2>
+            <p class="login-sub">Sign in to access your dashboard</p>
+
+            <div class="login-error" id="loginError"></div>
+
+            <form id="loginForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="username" autocomplete="username" class="form-control" placeholder="Enter Email Address" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" autocomplete="current-password" class="form-control" placeholder="Enter your password" required>
+                    <div class="forgot-password-link">
+                        <a href="#" onclick="showForgotNotice(event)">Forgot Password?</a>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-block btn-lg" id="loginBtn" onclick="handleLogin(event)">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+    // If already logged in, redirect
+    const existing = getSession();
+    if (existing) {
+        const routes = {
+            admin: '/admin/dashboard',
+            manager: '/manager/dashboard',
+            field_coordinator: '/coordinator/dashboard',
+            delivery_coordinator: '/coordinator/dashboard',
+        };
+        const nextUrl = routes[existing.role];
+        if (nextUrl && window.location.pathname !== nextUrl) {
+            window.location.href = nextUrl;
+        } else if (!nextUrl) {
+            deleteCookie('user_id');
+            deleteCookie('user_role');
+            deleteCookie('user_name');
+            deleteCookie('user_email');
+            deleteCookie('is_first_login');
+        }
+    }
+
+    function showForgotNotice(e) {
+        e.preventDefault();
+        document.getElementById('loginError').classList.remove('visible');
+
+        const existingNotice = document.getElementById('forgotNotice');
+        if (existingNotice) {
+            existingNotice.classList.add('visible');
+            return;
+        }
+
+        const notice = document.createElement('div');
+        notice.id = 'forgotNotice';
+        notice.className = 'forgot-notice visible';
+        notice.innerHTML = `
+            <div class="forgot-notice-icon">🔐</div>
+            <p>Please contact the Administrator to reset your password.</p>
+            <p class="forgot-admin-contact">Your password cannot be reset from this page.</p>
+            <button class="forgot-close-btn" onclick="hideForgotNotice()">✕ Close</button>
+        `;
+
+        const loginCard = document.querySelector('.login-card');
+        const loginForm = document.getElementById('loginForm');
+        if (loginCard && loginForm) {
+            loginCard.insertBefore(notice, loginForm);
+        }
+    }
+
+    function hideForgotNotice() {
+        const notice = document.getElementById('forgotNotice');
+        if (notice) notice.remove();
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const errEl = document.getElementById('loginError');
+        const btn   = document.getElementById('loginBtn');
+        errEl.classList.remove('visible');
+        hideForgotNotice();
+        btn.textContent = 'Signing in...';
+        btn.disabled = true;
+
+        try {
+            const user = await api('POST', '/users/login', {
+                email:    document.getElementById('email').value,
+                password: document.getElementById('password').value
+            });
+
+            setSession(user);
+
+            // First-login check: manager, field_coordinator, delivery_coordinator must change password
+            const firstLoginRoles = ['manager', 'field_coordinator', 'delivery_coordinator'];
+            if (user.is_first_login == 1 && firstLoginRoles.includes(user.role)) {
+                window.location.href = '/change-password';
+                return;
+            }
+
+            const routes = {
+                admin: '/admin/dashboard',
+                manager: '/manager/dashboard',
+                field_coordinator: '/coordinator/dashboard',
+                delivery_coordinator: '/coordinator/dashboard',
+            };
+            const nextUrl = routes[user.role];
+            if (nextUrl) {
+                window.location.href = nextUrl;
+            } else {
+                errEl.textContent = 'Invalid user role.';
+                errEl.classList.add('visible');
+                btn.textContent = 'Login';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            errEl.textContent = err.message || 'Invalid email or password';
+            errEl.classList.add('visible');
+            btn.textContent = 'Login';
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

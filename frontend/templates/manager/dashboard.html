@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Manager Dashboard{% endblock %}
+{% block page_title %}Overview{% endblock %}
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-icon">🗺️</div>
+        <div class="stat-number" id="statAreas">-</div>
+        <div class="stat-label">My Areas</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-icon">📍</div>
+        <div class="stat-number" id="statSubareas">-</div>
+        <div class="stat-label">My Sub Areas</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon">👥</div>
+        <div class="stat-number" id="statCoords">-</div>
+        <div class="stat-label">My Coordinators</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">💰</div>
+        <div class="stat-number" id="statFunds">-</div>
+        <div class="stat-label">Remaining Budget</div>
+    </div>
+</div>
+
+<div class="card mt-24">
+    <div class="card-header">
+        <h3>Pending Tasks</h3>
+    </div>
+    <div class="card-body empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">All caught up!</div>
+        <div class="empty-text">You have no pending families to approve or attendances to verify.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const session = getSession();
+    if (!session) return;
+    
+    try {
+        const [areas, subareas, coords, funds] = await Promise.all([
+            api('GET', `/areas/manager/${session.id}`).catch(() => []),
+            api('GET', `/subareas/manager/${session.id}`).catch(() => []),
+            api('GET', `/users/manager/${session.id}/coordinators`).catch(() => []),
+            api('GET', `/funds/manager/${session.id}`).catch(() => null)
+        ]);
+        
+        document.getElementById('statAreas').textContent = areas.length || 0;
+        document.getElementById('statSubareas').textContent = subareas.length || 0;
+        
+        document.getElementById('statCoords').textContent = coords.length || 0;
+        
+        if (funds) {
+            const rem = parseFloat(funds.total_amount || 0) - parseFloat(funds.spent_amount || 0);
+            document.getElementById('statFunds').textContent = formatCurrency(rem);
+        } else {
+            document.getElementById('statFunds').textContent = '₹0.00';
+        }
+        
+    } catch (e) {
+        console.error(e);
+        showNotification('Failed to load dashboard data', 'error');
+    }
+});
+</script>
+{% endblock %}
