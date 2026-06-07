@@ -217,11 +217,19 @@ h4 { font-size: 1rem; font-weight: 600; }
 
 /* --- Sidebar Footer --- */
 .sidebar-footer {
-    padding: 16px 20px;
+    padding: 12px 16px;
     border-top: 1px solid rgba(255,255,255,0.06);
     display: flex;
     align-items: center;
     gap: 12px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    margin: 8px;
+    transition: var(--transition-fast);
+}
+
+.sidebar-footer:hover {
+    background: rgba(59,130,246,0.1);
 }
 
 .sidebar-footer .user-avatar {
@@ -236,6 +244,7 @@ h4 { font-size: 1rem; font-weight: 600; }
     font-size: 0.85rem;
     color: #fff;
     flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.35);
 }
 
 .sidebar-footer .user-meta {
@@ -258,20 +267,15 @@ h4 { font-size: 1rem; font-weight: 600; }
     text-transform: capitalize;
 }
 
-.sidebar-footer .logout-btn {
-    background: none;
-    border: none;
+.sidebar-footer .profile-caret {
     color: var(--text-muted);
-    cursor: pointer;
-    padding: 6px;
-    border-radius: var(--radius-xs);
+    font-size: 0.88rem;
+    flex-shrink: 0;
     transition: var(--transition-fast);
-    font-size: 1rem;
 }
 
-.sidebar-footer .logout-btn:hover {
-    color: var(--danger);
-    background: rgba(239,68,68,0.1);
+.sidebar-footer:hover .profile-caret {
+    color: var(--primary);
 }
 
 /* --- Main Content --- */
@@ -837,6 +841,14 @@ h4 { font-size: 1rem; font-weight: 600; }
     color: var(--text-muted);
 }
 
+.form-control:disabled,
+.form-control[readonly] {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
 select.form-control {
     cursor: pointer;
     appearance: none;
@@ -1276,3 +1288,423 @@ select.form-control {
 .animate-in:nth-child(2) { animation-delay: 0.1s; }
 .animate-in:nth-child(3) { animation-delay: 0.15s; }
 .animate-in:nth-child(4) { animation-delay: 0.2s; }
+
+/* ============================================================
+   TOPBAR PROFILE BUTTON
+   ============================================================ */
+
+.topbar .user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar-profile-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #818cf8);
+    border: 2px solid rgba(59,130,246,0.3);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.topbar-profile-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+}
+
+/* ============================================================
+   PROFILE MODAL
+   ============================================================ */
+
+.profile-modal {
+    max-width: 540px;
+    width: 100%;
+}
+
+.profile-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, var(--primary-dark), #4f46e5);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+}
+
+.profile-avatar-lg {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.3);
+    flex-shrink: 0;
+}
+
+.profile-banner-info .profile-banner-name {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.profile-banner-info .profile-banner-role {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.82rem;
+    margin-top: 2px;
+}
+
+/* Profile Tabs */
+.profile-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--border-light);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+}
+
+.profile-tab {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition-fast);
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.profile-tab:hover {
+    background: rgba(59,130,246,0.08);
+    color: var(--primary);
+}
+
+.profile-tab.active {
+    background: var(--surface);
+    color: var(--primary);
+    font-weight: 600;
+    box-shadow: var(--shadow-xs);
+}
+
+/* Tab Panels */
+.profile-tab-panel {
+    display: none;
+    animation: fadeIn 0.2s ease;
+}
+
+.profile-tab-panel.active {
+    display: block;
+}
+
+/* Info Grid */
+.profile-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.profile-info-item {
+    background: var(--border-light);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+}
+
+.pii-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.pii-value {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.pii-mono {
+    font-family: 'Courier New', monospace;
+    color: var(--primary);
+}
+
+.profile-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+}
+
+/* Edit / Security Tabs */
+.security-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: var(--primary-light);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--primary);
+}
+
+.form-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: block;
+}
+
+.profile-edit-msg {
+    display: none;
+    font-size: 0.83rem;
+    padding: 8px 12px;
+    border-radius: var(--radius-xs);
+    margin-bottom: 14px;
+}
+
+.profile-edit-msg.visible {
+    display: block;
+}
+
+.profile-edit-msg.msg-success {
+    background: var(--success-light);
+    color: #065f46;
+    border: 1px solid rgba(16,185,129,0.25);
+}
+
+.profile-edit-msg.msg-error {
+    background: var(--danger-light);
+    color: #991b1b;
+    border: 1px solid rgba(239,68,68,0.25);
+}
+
+/* Profile Modal Footer — Logout */
+.profile-modal-footer {
+    justify-content: flex-start;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.btn-logout-profile {
+    gap: 6px;
+    font-size: 0.88rem;
+}
+
+/* ============================================================
+   PASSWORD INPUT — Show/Hide Toggle
+   ============================================================ */
+
+.password-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrap .form-control {
+    padding-right: 40px;
+}
+
+.toggle-pwd {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 2px;
+    line-height: 1;
+}
+
+.toggle-pwd:hover {
+    color: var(--primary);
+}
+
+/* ============================================================
+   PASSWORD STRENGTH INDICATOR
+   ============================================================ */
+
+.pwd-strength {
+    font-size: 0.75rem;
+    margin-top: 5px;
+    font-weight: 600;
+}
+
+.pwd-strength.weak        { color: var(--danger); }
+.pwd-strength.fair        { color: var(--warning); }
+.pwd-strength.good        { color: var(--info); }
+.pwd-strength.strong      { color: var(--success); }
+.pwd-strength.very-strong { color: #059669; }
+
+.pwd-match-hint {
+    font-size: 0.75rem;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
+.pwd-match-hint.match-ok   { color: var(--success); }
+.pwd-match-hint.match-fail { color: var(--danger); }
+
+/* ============================================================
+   LOGIN PAGE — Forgot Password Notice + Updates
+   ============================================================ */
+
+.forgot-password-link {
+    margin-top: 6px;
+    text-align: right;
+}
+
+.forgot-password-link a {
+    font-size: 0.8rem;
+    color: rgba(147,197,253,0.8);
+    transition: var(--transition-fast);
+}
+
+.forgot-password-link a:hover {
+    color: #93c5fd;
+    text-decoration: underline;
+}
+
+.forgot-notice {
+    display: none;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+    animation: fadeIn 0.25s ease;
+}
+
+.forgot-notice.visible {
+    display: block;
+}
+
+.forgot-notice-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+}
+
+.forgot-notice p {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+
+.forgot-admin-contact a {
+    color: #93c5fd;
+    font-size: 0.82rem;
+}
+
+.forgot-close-btn {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    padding: 5px 14px;
+    border-radius: var(--radius-xs);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    font-family: inherit;
+}
+
+.forgot-close-btn:hover {
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+}
+
+/* ============================================================
+   LOGIN PAGE — Success Message (for change password page)
+   ============================================================ */
+
+.login-success {
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.35);
+    color: #6ee7b7;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    display: none;
+    animation: fadeIn 0.25s ease;
+}
+
+.login-success.visible { display: block; }
+
+/* ============================================================
+   FIRST LOGIN BADGE + REQUIRED MARKER
+   ============================================================ */
+
+.first-login-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+}
+
+.required {
+    color: var(--danger);
+    margin-left: 2px;
+}
+
+/* ============================================================
+   RESPONSIVE UPDATES
+   ============================================================ */
+
+@media (max-width: 640px) {
+    .profile-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-modal {
+        max-width: 100%;
+        margin: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .profile-tabs {
+        flex-wrap: wrap;
+    }
+
+    .profile-tab {
+        font-size: 0.75rem;
+        padding: 6px 8px;
+    }
+
+    .forgot-password-link {
+        text-align: left;
+    }
+}

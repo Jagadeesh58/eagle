@@ -20,19 +20,26 @@ USE eagle_db;
 -- manager_id is filled for coordinators (points to their manager)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS users (
-    id          INT PRIMARY KEY AUTO_INCREMENT,
-    name        VARCHAR(100),
-    email       VARCHAR(100) UNIQUE,
-    password    VARCHAR(255),
-    role        ENUM('admin', 'manager', 'field_coordinator', 'delivery_coordinator'),
-    manager_id  INT,
-    created_at  DATETIME DEFAULT NOW(),
+    id               INT PRIMARY KEY AUTO_INCREMENT,
+    name             VARCHAR(100),
+    email            VARCHAR(100) UNIQUE,
+    password         VARCHAR(255),
+    role             ENUM('admin', 'manager', 'field_coordinator', 'delivery_coordinator'),
+    mobile           VARCHAR(15),
+    manager_id       INT,
+    is_first_login   TINYINT(1) DEFAULT 1,
+    created_at       DATETIME DEFAULT NOW(),
     FOREIGN KEY (manager_id) REFERENCES users(id)
 );
 
+-- Run these ALTER statements if upgrading an existing database (safe to run multiple times):
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(15);
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login TINYINT(1) DEFAULT 1;
+-- UPDATE users SET is_first_login = 0 WHERE role = 'admin';
+
 -- Seed admin credentials so the system can be accessed after database creation.
-INSERT IGNORE INTO users (name, email, password, role, manager_id) VALUES
-('Admin User', 'dhanushgudivada@gmail.com', 'dhanu123', 'admin', NULL);
+INSERT IGNORE INTO users (name, email, password, role, mobile, manager_id, is_first_login) VALUES
+('Admin User', 'dhanushgudivada@gmail.com', 'dhanu123', 'admin', NULL, NULL, 0);
 
 -- ============================================================
 -- TABLE 2: areas
@@ -95,8 +102,6 @@ CREATE TABLE IF NOT EXISTS attendance (
     coordinator_id  INT,
     sub_area_id     INT,
     check_in_time   DATETIME DEFAULT NOW(),
-    latitude        DECIMAL(9,6),
-    longitude       DECIMAL(9,6),
     is_present      BOOLEAN DEFAULT FALSE,
     created_at      DATETIME DEFAULT NOW(),
     FOREIGN KEY (coordinator_id) REFERENCES users(id),
@@ -143,24 +148,10 @@ CREATE TABLE IF NOT EXISTS eligible_families (
     FOREIGN KEY (approved_by)    REFERENCES users(id)
 );
 
--- ============================================================
--- TABLE 8: coordinator_live_tracking
--- Field coordinator's phone sends GPS every few minutes while in the field
--- Manager queries latest row per coordinator to see live location
--- ============================================================
-CREATE TABLE IF NOT EXISTS coordinator_live_tracking (
-    id              INT PRIMARY KEY AUTO_INCREMENT,
-    coordinator_id  INT NOT NULL,
-    sub_area_id     INT,
-    latitude        DECIMAL(9,6),
-    longitude       DECIMAL(9,6),
-    recorded_at     DATETIME DEFAULT NOW(),
-    FOREIGN KEY (coordinator_id) REFERENCES users(id),
-    FOREIGN KEY (sub_area_id)    REFERENCES sub_areas(id)
-);
+
 
 -- ============================================================
--- TABLE 9: coordinator2_assignments
+-- TABLE 8: coordinator2_assignments
 -- Manager assigns approved families to delivery coordinator for delivery
 -- status tracks progress: pending → delivered → completed
 -- ============================================================
@@ -180,7 +171,7 @@ CREATE TABLE IF NOT EXISTS coordinator2_assignments (
 );
 
 -- ============================================================
--- TABLE 10: livestock_delivery
+-- TABLE 9: livestock_delivery
 -- Delivery coordinator delivers livestock and trains approved families
 -- delivered and upskill_done tracked separately
 -- because delivery and training happen on different days

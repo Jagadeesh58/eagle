@@ -13,6 +13,7 @@ class User(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[str] = None
+    mobile: Optional[str] = None
     manager_id: Optional[int] = None
     
 class UserCreate(BaseModel):
@@ -20,6 +21,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     role: str
+    mobile: Optional[str] = None
     manager_id: Optional[int] = None
     
 class UserUpdate(BaseModel):
@@ -28,7 +30,18 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[str] = None
+    mobile: Optional[str] = None
     manager_id: Optional[int] = None
+
+class UpdateProfileRequest(BaseModel):
+    user_id: int
+    name: str
+    mobile: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    user_id: int
+    old_password: str
+    new_password: str
     
 class LoginRequest(BaseModel):
     email: str
@@ -66,8 +79,6 @@ class Attendance(BaseModel):
     id: Optional[int] = None
     coordinator_id: int
     sub_area_id: int
-    latitude: float
-    longitude: float
     
 class Beneficiary(BaseModel):
     id: Optional[int] = None
@@ -98,12 +109,6 @@ class EligibleFamily(BaseModel):
     
 class StatusUpdate(BaseModel):
     status: str
-    
-class LiveLocation(BaseModel):
-    coordinator_id: int
-    sub_area_id: int
-    latitude: float
-    longitude: float
     
 class Assignment(BaseModel):
     manager_id: int
@@ -136,11 +141,31 @@ def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Wrong email or password")
     return user
 
+@backend_router.post('/users/change-password', tags=['Users'])
+def change_password(req: ChangePasswordRequest):
+    user = db.get_user_by_id(req.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user['password'] != req.old_password:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    db.change_password(req.user_id, req.new_password)
+    return {"message": "Password updated successfully"}
+
+@backend_router.put('/users/profile', tags=['Users'])
+def update_profile(req: UpdateProfileRequest):
+    user = db.get_user_by_id(req.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.update_user_profile(req.user_id, req.name, req.mobile)
+    return db.get_user_by_id(req.user_id)
+
 @backend_router.post('/users', tags=['Users'])
 def add_user(user: UserCreate):
     if db.get_user_by_email(user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
-    new_id = db.add_user(user.name, user.email, user.password, user.role, user.manager_id)
+    new_id = db.add_user(user.name, user.email, user.password, user.role, user.mobile, user.manager_id)
     return db.get_user_by_id(new_id)
 
 @backend_router.put('/users', tags=['Users'])
@@ -159,9 +184,11 @@ def update_user(user: UserUpdate):
         user.password = existing_user['password']
     if user.role is None:
         user.role = existing_user['role']
+    if user.mobile is None:
+        user.mobile = existing_user.get('mobile')
     if user.manager_id is None:
         user.manager_id = existing_user['manager_id']
-    db.update_user(user.id, user.name, user.email, user.password, user.role, user.manager_id)
+    db.update_user(user.id, user.name, user.email, user.password, user.role, user.mobile, user.manager_id)
     return db.get_user_by_id(user.id)
 
 @backend_router.delete('/users/{user_id}', tags=['Users'])
@@ -315,7 +342,7 @@ def get_todays_attendance(coordinator_id: int):
 
 @backend_router.post('/attendance', tags=['Attendance'])
 def add_attendance(att: Attendance):
-    new_id = db.add_attendance(att.coordinator_id, att.sub_area_id, att.latitude, att.longitude)
+    new_id = db.add_attendance(att.coordinator_id, att.sub_area_id)
     return db.get_attendance_by_id(new_id)
 
 @backend_router.put('/attendance/verify/{att_id}', tags=['Attendance'])
@@ -459,21 +486,6 @@ def delete_eligible(ef_id: int):
     db.delete_eligible_family(ef_id)
     return {"message": "Record deleted successfully"}
 
-@backend_router.get('/tracking/all', tags=['Live Tracking'])
-def get_all_latest_locations():
-    return db.get_all_latest_locations()
-
-@backend_router.get('/tracking/{coordinator_id}', tags=['Live Tracking'])
-def get_latest_location(coordinator_id: int):
-    location = db.get_latest_location(coordinator_id)
-    if location is None:
-        raise HTTPException(status_code=404, detail="No location found for this coordinator")
-    return location
-
-@backend_router.post('/tracking', tags=['Live Tracking'])
-def add_location(loc: LiveLocation):
-    new_id = db.add_location(loc.coordinator_id, loc.sub_area_id, loc.latitude, loc.longitude)
-    return db.get_latest_location(loc.coordinator_id)
 
 @backend_router.get('/assignments/coordinator/{coordinator2_id}', tags=['Assignments'])
 def get_assignments_by_coordinator(coordinator2_id: int):
@@ -503,6 +515,22 @@ def add_assignment(assign: Assignment):
         assign.beneficiary_id, assign.sub_area_id, assign.assigned_date
     )
     return db.get_assignment_by_id(new_id)
+
+@backend_router.put('/assignments', tags=['Assignments'])
+def update_assignment(assign: dict):
+    # Expected dict with id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date
+    assign_id = assign.get('id')
+    if not assign_id or db.get_assignment_by_id(assign_id) is None:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    db.update_assignment(
+        assign_id,
+        assign.get('coordinator2_id'),
+        assign.get('beneficiary_id'),
+        assign.get('sub_area_id'),
+        assign.get('assigned_date')
+    )
+    return db.get_assignment_by_id(assign_id)
 
 @backend_router.put('/assignments/{assign_id}/status', tags=['Assignments'])
 def update_assignment_status(assign_id: int, req: StatusUpdate):

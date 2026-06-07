@@ -27,23 +27,26 @@ function deleteCookie(name) {
 // SESSION MANAGEMENT
 // ============================================================
 function getSession() {
-    const id   = getCookie('user_id');
-    const name = getCookie('user_name');
-    const role = getCookie('user_role');
-    const email = getCookie('user_email');
-    if (id && role) return { id: parseInt(id), name, role, email };
+    const id     = getCookie('user_id');
+    const name   = getCookie('user_name');
+    const role   = getCookie('user_role');
+    const email  = getCookie('user_email');
+    const mobile = getCookie('user_mobile');
+    if (id && role) return { id: parseInt(id), name, role, email, mobile };
     return null;
 }
 
 function setSession(user) {
-    setCookie('user_id',    user.id);
-    setCookie('user_name',  user.name);
-    setCookie('user_role',  user.role);
-    setCookie('user_email', user.email);
+    setCookie('user_id',         user.id);
+    setCookie('user_name',       user.name);
+    setCookie('user_role',       user.role);
+    setCookie('user_email',      user.email);
+    setCookie('user_mobile',     user.mobile || '');
+    setCookie('is_first_login',  String(user.is_first_login ?? 0));
 }
 
 function clearSession() {
-    ['user_id', 'user_name', 'user_role', 'user_email'].forEach(deleteCookie);
+    ['user_id', 'user_name', 'user_role', 'user_email', 'user_mobile', 'is_first_login'].forEach(deleteCookie);
 }
 
 function logout() {

@@ -164,9 +164,9 @@ class EaglDB:
         sql = "SELECT * FROM attendance WHERE coordinator_id = %s AND DATE(check_in_time) = CURDATE()"
         return self.get_one(sql, (coordinator_id,))
 
-    def add_attendance(self, coordinator_id, sub_area_id, latitude, longitude):
-        sql = "INSERT INTO attendance (coordinator_id, sub_area_id, latitude, longitude) VALUES (%s, %s, %s, %s)"
-        return self.run_query(sql, (coordinator_id, sub_area_id, latitude, longitude))
+    def add_attendance(self, coordinator_id, sub_area_id):
+        sql = "INSERT INTO attendance (coordinator_id, sub_area_id) VALUES (%s, %s)"
+        return self.run_query(sql, (coordinator_id, sub_area_id))
 
     def mark_present(self, att_id):
         # Manager calls this after verifying GPS location
@@ -267,30 +267,6 @@ class EaglDB:
         self.run_query("DELETE FROM eligible_families WHERE id = %s", (ef_id,))
 
 
-    # ============================================================
-    # COORDINATOR LIVE TRACKING
-    # ============================================================
-
-    def add_location(self, coordinator_id, sub_area_id, latitude, longitude):
-        sql = "INSERT INTO coordinator_live_tracking (coordinator_id, sub_area_id, latitude, longitude) VALUES (%s, %s, %s, %s)"
-        return self.run_query(sql, (coordinator_id, sub_area_id, latitude, longitude))
-
-    def get_latest_location(self, coordinator_id):
-        # Returns the most recent GPS ping for a coordinator
-        sql = """SELECT * FROM coordinator_live_tracking
-                 WHERE coordinator_id = %s
-                 ORDER BY recorded_at DESC LIMIT 1"""
-        return self.get_one(sql, (coordinator_id,))
-
-    def get_all_latest_locations(self):
-        # Returns the latest location for every coordinator (manager dashboard)
-        sql = """SELECT t1.* FROM coordinator_live_tracking t1
-                 INNER JOIN (
-                     SELECT coordinator_id, MAX(recorded_at) AS latest
-                     FROM coordinator_live_tracking GROUP BY coordinator_id
-                 ) t2 ON t1.coordinator_id = t2.coordinator_id AND t1.recorded_at = t2.latest"""
-        return self.get_many(sql)
-
 
     # ============================================================
     # DELIVERY COORDINATOR ASSIGNMENTS
@@ -310,6 +286,12 @@ class EaglDB:
                  (manager_id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date)
                  VALUES (%s, %s, %s, %s, %s)"""
         return self.run_query(sql, (manager_id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date))
+
+    def update_assignment(self, id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date):
+        sql = """UPDATE coordinator2_assignments 
+                 SET coordinator2_id=%s, beneficiary_id=%s, sub_area_id=%s, assigned_date=%s
+                 WHERE id=%s"""
+        self.run_query(sql, (coordinator2_id, beneficiary_id, sub_area_id, assigned_date, id))
 
     def update_assignment_status(self, assign_id, status):
         self.run_query("UPDATE coordinator2_assignments SET status = %s WHERE id = %s", (status, assign_id))

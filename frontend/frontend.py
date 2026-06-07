@@ -21,6 +21,13 @@ def get_session_user(request: Request):
 def login_page(request: Request):
     return templates.TemplateResponse(request, "login.html", {"request": request})
 
+@frontend_router.get("/change-password", response_class=HTMLResponse)
+def change_password_page(request: Request):
+    user = get_session_user(request)
+    if not user:
+        return RedirectResponse("/")
+    return templates.TemplateResponse(request, "change_password.html", {"request": request, "user": user})
+
 @frontend_router.get("/admin/dashboard", response_class=HTMLResponse)
 def admin_dashboard_page(request: Request):
     user = get_session_user(request)
@@ -93,12 +100,6 @@ def manager_attendance_page(request: Request):
     return templates.TemplateResponse(request, "manager/attendance.html", {"request": request, "user": user})
 
 
-@frontend_router.get("/manager/tracking", response_class=HTMLResponse)
-def manager_tracking_page(request: Request):
-    user = get_session_user(request)
-    if not user or user["role"] != "manager":
-        return RedirectResponse("/")
-    return templates.TemplateResponse(request, "manager/tracking.html", {"request": request, "user": user})
 
 
 @frontend_router.get("/manager/assignments", response_class=HTMLResponse)

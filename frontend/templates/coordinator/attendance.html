@@ -16,7 +16,7 @@
                 <div class="form-help">Ensure you are physically at this location before checking in.</div>
             </div>
             <button type="submit" class="btn btn-primary btn-block" id="checkinBtn">
-                📍 Get GPS & Check In
+                ✅ Check In
             </button>
         </form>
     </div>
@@ -91,37 +91,21 @@ async function submitAttendance(e) {
     const sub_area_id = parseInt(document.getElementById('subAreaSel').value);
     
     btn.disabled = true;
-    btn.textContent = 'Acquiring GPS...';
+    btn.textContent = 'Submitting...';
     
-    if (!navigator.geolocation) {
-        showNotification('Geolocation is not supported by your browser', 'error');
+    try {
+        await api('POST', '/attendance', {
+            coordinator_id: session.id,
+            sub_area_id: sub_area_id
+        });
+        showNotification('Attendance submitted successfully');
+        loadAttendance();
+    } catch (err) {
+        showNotification(err.message, 'error');
+    } finally {
         btn.disabled = false;
-        btn.textContent = '📍 Get GPS & Check In';
-        return;
+        btn.textContent = '✅ Check In';
     }
-    
-    navigator.geolocation.getCurrentPosition(async (position) => {
-        try {
-            btn.textContent = 'Submitting...';
-            await api('POST', '/attendance', {
-                coordinator_id: session.id,
-                sub_area_id: sub_area_id,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
-            });
-            showNotification('Attendance submitted successfully');
-            loadAttendance();
-        } catch (err) {
-            showNotification(err.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = '📍 Get GPS & Check In';
-        }
-    }, (error) => {
-        showNotification('Failed to get GPS location. Please allow location access.', 'error');
-        btn.disabled = false;
-        btn.textContent = '📍 Get GPS & Check In';
-    });
 }
 </script>
 {% endblock %}

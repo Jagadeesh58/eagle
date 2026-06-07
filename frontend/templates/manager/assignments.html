@@ -35,6 +35,7 @@
         </div>
         <form id="assignForm" onsubmit="return saveAssign(event)">
             <div class="modal-body">
+                <input type="hidden" id="assignId">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Coordinator 2 <span class="required">*</span></label>
@@ -118,6 +119,7 @@ function renderTable() {
             <td>${statusBadge(a.status)}</td>
             <td>
                 <div class="actions">
+                    <button class="btn-icon" onclick='editAssign(${JSON.stringify(a).replace(/'/g, "&#39;")})'>✏️</button>
                     <button class="btn-icon danger" onclick="deleteAssign(${a.id})">🗑️</button>
                 </div>
             </td>
@@ -127,7 +129,20 @@ function renderTable() {
 
 function openAssignModal() {
     document.getElementById('assignForm').reset();
+    document.getElementById('assignId').value = '';
+    document.getElementById('asBen').disabled = false;
     document.getElementById('asDate').valueAsDate = new Date();
+    openModal('assignModal');
+}
+
+function editAssign(a) {
+    document.getElementById('assignId').value = a.id;
+    document.getElementById('asCoord').value = a.coordinator2_id;
+    document.getElementById('asBen').value = a.beneficiary_id;
+    document.getElementById('asSub').value = a.sub_area_id;
+    document.getElementById('asDate').value = a.assigned_date;
+    
+    document.getElementById('asBen').disabled = true;
     openModal('assignModal');
 }
 
@@ -144,8 +159,15 @@ async function saveAssign(e) {
             sub_area_id: parseInt(document.getElementById('asSub').value),
             assigned_date: document.getElementById('asDate').value
         };
-        await api('POST', '/assignments', payload);
-        showNotification('Assignment created');
+        const id = document.getElementById('assignId').value;
+        if (id) {
+            payload.id = parseInt(id);
+            await api('PUT', '/assignments', payload);
+            showNotification('Assignment updated');
+        } else {
+            await api('POST', '/assignments', payload);
+            showNotification('Assignment created');
+        }
         closeModal('assignModal');
         loadAssignments();
     } catch (err) {

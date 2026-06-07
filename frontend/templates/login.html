@@ -24,7 +24,7 @@
             </div>
             <div class="feature-item">
                 <div class="fi-icon">📍</div>
-                <span>GPS-based attendance and location tracking</span>
+                <span>Streamlined attendance tracking</span>
             </div>
             <div class="feature-item">
                 <div class="fi-icon">🚛</div>
@@ -40,7 +40,7 @@
     <!-- Right Panel — Login Form -->
     <div class="login-right">
         <div class="login-card">
-            <h2>Welcome Back</h2>
+            <h2>Welcome</h2>
             <p class="login-sub">Sign in to access your dashboard</p>
 
             <div class="login-error" id="loginError"></div>
@@ -48,11 +48,14 @@
             <form id="loginForm" onsubmit="return handleLogin(event)">
                 <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" class="form-control" placeholder="you@eagl.org" required>
+                    <input type="email" id="email" class="form-control" placeholder="Enter Email Address" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+                    <div class="forgot-password-link">
+                        <a href="#" onclick="showForgotNotice(event)">Forgot Password?</a>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginBtn">
                     Sign In
@@ -77,11 +80,44 @@
         window.location.href = routes[existing.role] || '/';
     }
 
+    function showForgotNotice(e) {
+        e.preventDefault();
+        document.getElementById('loginError').classList.remove('visible');
+
+        const existingNotice = document.getElementById('forgotNotice');
+        if (existingNotice) {
+            existingNotice.classList.add('visible');
+            return;
+        }
+
+        const notice = document.createElement('div');
+        notice.id = 'forgotNotice';
+        notice.className = 'forgot-notice visible';
+        notice.innerHTML = `
+            <div class="forgot-notice-icon">🔐</div>
+            <p>Please contact the Administrator to reset your password.</p>
+            <p class="forgot-admin-contact">Your password cannot be reset from this page.</p>
+            <button class="forgot-close-btn" onclick="hideForgotNotice()">✕ Close</button>
+        `;
+
+        const loginCard = document.querySelector('.login-card');
+        const loginForm = document.getElementById('loginForm');
+        if (loginCard && loginForm) {
+            loginCard.insertBefore(notice, loginForm);
+        }
+    }
+
+    function hideForgotNotice() {
+        const notice = document.getElementById('forgotNotice');
+        if (notice) notice.remove();
+    }
+
     async function handleLogin(e) {
         e.preventDefault();
         const errEl = document.getElementById('loginError');
         const btn   = document.getElementById('loginBtn');
         errEl.classList.remove('visible');
+        hideForgotNotice();
         btn.textContent = 'Signing in...';
         btn.disabled = true;
 
@@ -92,6 +128,13 @@
             });
 
             setSession(user);
+
+            // First-login check: manager, field_coordinator, delivery_coordinator must change password
+            const firstLoginRoles = ['manager', 'field_coordinator', 'delivery_coordinator'];
+            if (user.is_first_login == 1 && firstLoginRoles.includes(user.role)) {
+                window.location.href = '/change-password';
+                return;
+            }
 
             const routes = {
                 admin: '/admin/dashboard',

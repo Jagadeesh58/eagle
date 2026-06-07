@@ -34,6 +34,7 @@
         </div>
         <form id="subareaForm" onsubmit="return saveSubarea(event)">
             <div class="modal-body">
+                <input type="hidden" id="saId">
                 <div class="form-group">
                     <label>Parent Area <span class="required">*</span></label>
                     <select id="saArea" class="form-control" required></select>
@@ -135,6 +136,7 @@ function renderTable() {
             <td>${formatDate(s.assigned_date)}</td>
             <td>
                 <div class="actions">
+                    <button class="btn-icon" onclick='editSubarea(${JSON.stringify(s).replace(/'/g, "&#39;")})'>✏️</button>
                     <button class="btn-icon danger" onclick="deleteSubarea(${s.id})">🗑️</button>
                 </div>
             </td>
@@ -144,7 +146,22 @@ function renderTable() {
 
 function openSubareaModal() {
     document.getElementById('subareaForm').reset();
+    document.getElementById('saId').value = '';
+    document.getElementById('saArea').disabled = false;
+    document.getElementById('saDate').disabled = false;
     document.getElementById('saDate').valueAsDate = new Date();
+    openModal('subareaModal');
+}
+
+function editSubarea(s) {
+    document.getElementById('saId').value = s.id;
+    document.getElementById('saArea').value = s.area_id;
+    document.getElementById('saName').value = s.sub_area_name;
+    document.getElementById('saCoord').value = s.coordinator1_id;
+    document.getElementById('saDate').value = s.assigned_date;
+    
+    document.getElementById('saArea').disabled = true;
+    document.getElementById('saDate').disabled = true;
     openModal('subareaModal');
 }
 
@@ -161,8 +178,15 @@ async function saveSubarea(e) {
             manager_id: session.id,
             assigned_date: document.getElementById('saDate').value
         };
-        await api('POST', '/subareas', payload);
-        showNotification('Sub area created');
+        const id = document.getElementById('saId').value;
+        if (id) {
+            payload.id = parseInt(id);
+            await api('PUT', '/subareas', payload);
+            showNotification('Sub area updated');
+        } else {
+            await api('POST', '/subareas', payload);
+            showNotification('Sub area created');
+        }
         closeModal('subareaModal');
         loadSubareas();
     } catch (err) {
