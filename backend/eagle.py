@@ -211,6 +211,9 @@ class EaglDB:
 
     def get_sub_area_by_id(self, subarea_id):
         return self.get_one("SELECT * FROM sub_areas WHERE id = %s", (subarea_id,))
+    
+    def get_sub_area_by_name(self, sub_area_name):
+        return self.get_one("SELECT * FROM sub_areas WHERE sub_area_name = %s", (sub_area_name,))
 
     def get_sub_areas_by_area(self, area_id):
         return self.get_many("SELECT * FROM sub_areas WHERE area_id = %s", (area_id,))
@@ -225,8 +228,20 @@ class EaglDB:
         sql = "INSERT INTO sub_areas (area_id, sub_area_name, coordinator1_id, manager_id, assigned_date) VALUES (%s, %s, %s, %s, %s)"
         return self.run_query(sql, (area_id, sub_area_name, coordinator1_id, manager_id, assigned_date))
 
-    def reassign_sub_area(self, subarea_id, new_coordinator_id):
-        self.run_query("UPDATE sub_areas SET coordinator1_id = %s WHERE id = %s", (new_coordinator_id, subarea_id))
+    def update_sub_area(self, subarea_id, sub_area_name=None,coordinator1_id=None):
+        updates = []
+        params = []
+        if sub_area_name is not None:
+            updates.append("sub_area_name = %s")
+            params.append(sub_area_name)
+        if coordinator1_id is not None:
+            updates.append("coordinator1_id = %s")
+            params.append(coordinator1_id)
+        if not updates:
+            return
+        sql = f"UPDATE sub_areas SET {', '.join(updates)} WHERE id = %s"
+        params.append(subarea_id)
+        self.run_query(sql, tuple(params))
 
     def delete_sub_area(self, subarea_id):
         self.run_query("DELETE FROM sub_areas WHERE id = %s", (subarea_id,))

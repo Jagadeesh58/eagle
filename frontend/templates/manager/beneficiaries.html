@@ -10,11 +10,7 @@
                 <select id="filterSubArea" class="form-control" required></select>
             </div>
             <div class="form-group mb-0">
-                <label>Per Capita Income Limit (₹)</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="number" id="filterLimit" class="form-control" placeholder="e.g. 15000" required>
-                    <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
-                </div>
+                
             </div>
         </form>
     </div>
@@ -28,13 +24,12 @@
                 <th>Family Head Name</th>
                 <th>Members</th>
                 <th>Annual Income</th>
-                <th>Per Capita</th>
                 <th>Status</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td colspan="7" class="text-center py-4">Use the filter above to find eligible families.</td></tr>
+            <tr><td colspan="6" class="text-center py-4">Use the filter above to find eligible families.</td></tr>
         </tbody>
     </table>
 </div>
@@ -68,8 +63,7 @@ async function filterBeneficiaries(e) {
     btn.textContent = 'Filtering...';
     
     const tbody = document.querySelector('#bensTable tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>';
-    
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>';
     try {
         const sub_area_id = parseInt(document.getElementById('filterSubArea').value);
         const limit = parseFloat(document.getElementById('filterLimit').value);
@@ -78,7 +72,7 @@ async function filterBeneficiaries(e) {
         renderTable();
     } catch (err) {
         showNotification(err.message, 'error');
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
     } finally {
         btn.disabled = false;
         btn.textContent = 'Filter';
@@ -88,7 +82,7 @@ async function filterBeneficiaries(e) {
 function renderTable() {
     const tbody = document.querySelector('#bensTable tbody');
     if (!bensData || !bensData.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No families match this criteria.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No families match this criteria.</td></tr>';
         return;
     }
     
@@ -100,7 +94,6 @@ function renderTable() {
             <td><strong>${escapeHtml(b.family_name)}</strong></td>
             <td>${b.family_members}</td>
             <td>${formatCurrency(b.annual_income)}</td>
-            <td class="text-warning fw-600">${formatCurrency(pc)}</td>
             <td>${boolBadge(b.is_approved, 'Approved', 'Pending')}</td>
             <td>
                 ${b.is_approved 

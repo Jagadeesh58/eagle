@@ -8,20 +8,25 @@
         <div class="stat-number" id="statUsers">-</div>
         <div class="stat-label">Total Users</div>
     </div>
+    <div class="stat-card primary">
+        <div class="stat-icon">👨‍💼</div>
+        <div class="stat-number" id="statManagers">-</div>
+        <div class="stat-label">Total Managers</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon">🧭</div>
+        <div class="stat-number" id="statCoordinators">-</div>
+        <div class="stat-label">Total Coordinators</div>
+    </div>
     <div class="stat-card success">
         <div class="stat-icon">🗺️</div>
         <div class="stat-number" id="statAreas">-</div>
         <div class="stat-label">Total Areas</div>
     </div>
-    <div class="stat-card warning">
+    <div class="stat-card danger">
         <div class="stat-icon">💰</div>
         <div class="stat-number" id="statFunds">-</div>
-        <div class="stat-label">Funds Allocated</div>
-    </div>
-    <div class="stat-card primary">
-        <div class="stat-icon">👨‍💼</div>
-        <div class="stat-number" id="statManagers">-</div>
-        <div class="stat-label">Active Managers</div>
+        <div class="stat-label">Funds allocated</div>
     </div>
 </div>
 
@@ -59,13 +64,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         ]);
         
         document.getElementById('statUsers').textContent = users.length;
+        
+        const managers = users.filter(u => u.role === 'manager');
+        document.getElementById('statManagers').textContent = managers.length;
+        
+        const coordinators = users.filter(u => u.role === 'field_coordinator' || u.role === 'delivery_coordinator');
+        document.getElementById('statCoordinators').textContent = coordinators.length;
+        
         document.getElementById('statAreas').textContent = areas.length;
         
         const totalFunds = funds.reduce((sum, f) => sum + parseFloat(f.total_amount || 0), 0);
         document.getElementById('statFunds').textContent = formatCurrency(totalFunds);
-        
-        const managers = users.filter(u => u.role === 'manager');
-        document.getElementById('statManagers').textContent = managers.length;
         
         const tbody = document.querySelector('#recentUsersTable tbody');
         const recent = users.sort((a,b) => b.id - a.id).slice(0, 5);

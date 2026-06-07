@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS funds (
 CREATE TABLE IF NOT EXISTS sub_areas (
     id               INT PRIMARY KEY AUTO_INCREMENT,
     area_id          INT,
-    sub_area_name    VARCHAR(100),
+    sub_area_name    VARCHAR(100) unique,
     coordinator1_id  INT,
     manager_id       INT,
     assigned_date    DATE,

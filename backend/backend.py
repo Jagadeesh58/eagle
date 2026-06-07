@@ -74,9 +74,13 @@ class SubArea(BaseModel):
     manager_id: int
     assigned_date: date
     
-class ReassignRequest(BaseModel):
+class SubAreaUpdate(BaseModel):
     id: int
-    coordinator1_id: int
+    area_id: Optional[int] = None
+    sub_area_name: Optional[str] = None
+    coordinator1_id: Optional[int] = None
+    manager_id: Optional[int] = None
+    assigned_date: Optional[date] = None
     
 class Attendance(BaseModel):
     id: Optional[int] = None
@@ -351,19 +355,33 @@ def get_sub_areas_by_manager(manager_id: int):
     return db.get_sub_areas_by_manager(manager_id)
 
 @backend_router.post('/subareas', tags=['Sub Areas'])
-def add_sub_area(subarea: SubArea):
+def add_sub_area(area: SubArea):
+    if db.get_sub_area_by_name(area.sub_area_name) is not None:
+        raise HTTPException(status_code=400, detail="Sub area name already taken")
+
     new_id = db.add_sub_area(
-        subarea.area_id, subarea.sub_area_name,
-        subarea.coordinator1_id, subarea.manager_id, subarea.assigned_date
+        area.area_id,
+        area.sub_area_name,
+        area.coordinator1_id,
+        area.manager_id,
+        area.assigned_date,
     )
     return db.get_sub_area_by_id(new_id)
 
 @backend_router.put('/subareas', tags=['Sub Areas'])
-def reassign_sub_area(req: ReassignRequest):
+def update_sub_area(req: SubAreaUpdate):
     if db.get_sub_area_by_id(req.id) is None:
         raise HTTPException(status_code=404, detail="Sub area not found")
-    db.reassign_sub_area(req.id, req.coordinator1_id)
-    return db.get_sub_area_by_id(req.id)
+
+    if req.sub_area_name is not None and db.get_sub_area_by_name(req.sub_area_name) is None:
+        db.update_sub_area(
+            req.id,
+            sub_area_name=req.sub_area_name,
+            coordinator1_id=req.coordinator1_id,
+        )
+        return db.get_sub_area_by_id(req.id)
+    else:
+        raise HTTPException(status_code=400, detail="Sub area name already taken")
 
 @backend_router.delete('/subareas/{subarea_id}', tags=['Sub Areas'])
 def delete_sub_area(subarea_id: int):
