@@ -43,21 +43,21 @@
                 <input type="hidden" id="areaId">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Area Name <span class="required">*</span></label>
+                        <label>Area Name <span class="required" id="areaNameRequired">*</span></label>
                         <input type="text" id="areaName" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label>District <span class="required">*</span></label>
+                        <label>District <span class="required" id="areaDistrictRequired">*</span></label>
                         <input type="text" id="areaDistrict" class="form-control" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Poverty Percent <span class="required">*</span></label>
+                        <label>Poverty Percent <span class="required" id="areaPovertyRequired">*</span></label>
                         <input type="number" step="0.01" id="areaPoverty" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label>Manager <span class="required">*</span></label>
+                        <label>Manager <span class="required" id="areaManagerRequired">*</span></label>
                         <select id="areaManager" class="form-control" required>
                             <option value="">Select Manager</option>
                         </select>
@@ -66,7 +66,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('areaModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="saveBtn">Save Area</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Confirm</button>
             </div>
         </form>
     </div>
@@ -138,6 +138,13 @@ function renderTable() {
     `}).join('');
 }
 
+function setAreaRequiredMarkers(showName, showDistrict, showPoverty, showManager) {
+    document.getElementById('areaNameRequired').style.display = showName ? '' : 'none';
+    document.getElementById('areaDistrictRequired').style.display = showDistrict ? '' : 'none';
+    document.getElementById('areaPovertyRequired').style.display = showPoverty ? '' : 'none';
+    document.getElementById('areaManagerRequired').style.display = showManager ? '' : 'none';
+}
+
 function openAreaModal() {
     document.getElementById('modalTitle').textContent = 'Add Area';
     document.getElementById('areaForm').reset();
@@ -145,6 +152,7 @@ function openAreaModal() {
     document.getElementById('areaName').disabled = false;
     document.getElementById('areaDistrict').disabled = false;
     document.getElementById('areaPoverty').disabled = false;
+    setAreaRequiredMarkers(true, true, true, true);
     openModal('areaModal');
 }
 
@@ -160,6 +168,7 @@ function editArea(a) {
     document.getElementById('areaName').disabled = true;
     document.getElementById('areaDistrict').disabled = true;
     document.getElementById('areaPoverty').disabled = true;
+    setAreaRequiredMarkers(false, false, false, true);
     
     openModal('areaModal');
 }
@@ -198,7 +207,7 @@ async function saveArea(e) {
         showNotification(err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Save Area';
+        btn.textContent = 'Confirm';
     }
 }
 

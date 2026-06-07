@@ -17,11 +17,10 @@
                 <th>Spent</th>
                 <th>Remaining</th>
                 <th>Created At</th>
-                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>
+            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
         </tbody>
     </table>
 </div>
@@ -93,7 +92,7 @@ async function loadFunds() {
 function renderTable() {
     const tbody = document.querySelector('#fundsTable tbody');
     if (!fundsData.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No funds found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No funds found.</td></tr>';
         return;
     }
     
@@ -113,11 +112,6 @@ function renderTable() {
             <td class="text-danger">${formatCurrency(spent)}</td>
             <td class="text-success fw-600">${formatCurrency(rem)}</td>
             <td class="cell-muted">${formatDate(f.created_at)}</td>
-            <td>
-                <div class="actions">
-                    <button class="btn-icon danger" onclick="deleteFund(${f.id})">🗑️</button>
-                </div>
-            </td>
         </tr>
     `}).join('');
 }

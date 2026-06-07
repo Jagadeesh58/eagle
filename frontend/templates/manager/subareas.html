@@ -36,27 +36,27 @@
             <div class="modal-body">
                 <input type="hidden" id="saId">
                 <div class="form-group">
-                    <label>Parent Area <span class="required">*</span></label>
+                    <label>Parent Area <span class="required" id="saAreaRequired">*</span></label>
                     <select id="saArea" class="form-control" required></select>
                 </div>
                 <div class="form-group">
-                    <label>Sub Area Name <span class="required">*</span></label>
+                    <label>Sub Area Name <span class="required" id="saNameRequired">*</span></label>
                     <input type="text" id="saName" class="form-control" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Coordinator 1 <span class="required">*</span></label>
+                        <label>Coordinator 1 <span class="required" id="saCoordRequired">*</span></label>
                         <select id="saCoord" class="form-control" required></select>
                     </div>
                     <div class="form-group">
-                        <label>Assigned Date <span class="required">*</span></label>
+                        <label>Assigned Date <span class="required" id="saDateRequired">*</span></label>
                         <input type="date" id="saDate" class="form-control" required>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('subareaModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Confirm</button>
             </div>
         </form>
     </div>
@@ -143,12 +143,20 @@ function renderTable() {
     `}).join('');
 }
 
+function setSubareaRequiredMarkers(show) {
+    document.getElementById('saAreaRequired').style.display = show ? '' : 'none';
+    document.getElementById('saNameRequired').style.display = show ? '' : 'none';
+    document.getElementById('saCoordRequired').style.display = show ? '' : 'none';
+    document.getElementById('saDateRequired').style.display = show ? '' : 'none';
+}
+
 function openSubareaModal() {
     document.getElementById('subareaForm').reset();
     document.getElementById('saId').value = '';
     document.getElementById('saArea').disabled = false;
     document.getElementById('saDate').disabled = false;
     document.getElementById('saDate').valueAsDate = new Date();
+    setSubareaRequiredMarkers(true);
     openModal('subareaModal');
 }
 
@@ -161,6 +169,7 @@ function editSubarea(s) {
     
     document.getElementById('saArea').disabled = true;
     document.getElementById('saDate').disabled = true;
+    setSubareaRequiredMarkers(false);
     openModal('subareaModal');
 }
 
