@@ -151,6 +151,10 @@ class EaglDB:
     def update_area_manager(self, area_id, new_manager_id):
         self.run_query("UPDATE areas SET manager_id = %s WHERE id = %s", (new_manager_id, area_id))
 
+    def update_area(self, area_id, area_name, district, poverty_percent, manager_id):
+        sql = "UPDATE areas SET area_name=%s, district=%s, poverty_percent=%s, manager_id=%s WHERE id=%s"
+        self.run_query(sql, (area_name, district, poverty_percent, manager_id, area_id))
+
     def delete_area(self, area_id):
         self.run_query("DELETE FROM areas WHERE id = %s", (area_id,))
 
@@ -160,17 +164,58 @@ class EaglDB:
     # ============================================================
 
     def get_all_funds(self):
-        return self.get_many("SELECT * FROM funds")
+        sql = """
+            SELECT f.*,
+                   u.name  AS manager_name,
+                   a.area_name, a.district,
+                   ROUND(f.total_amount - f.spent_amount, 2) AS remaining
+            FROM funds f
+            LEFT JOIN users u ON f.manager_id = u.id
+            LEFT JOIN areas a ON f.area_id     = a.id
+            ORDER BY f.created_at DESC
+        """
+        return self.get_many(sql)
 
     def get_fund_by_id(self, fund_id):
-        return self.get_one("SELECT * FROM funds WHERE id = %s", (fund_id,))
+        sql = """
+            SELECT f.*,
+                   u.name AS manager_name,
+                   a.area_name, a.district
+            FROM funds f
+            LEFT JOIN users u ON f.manager_id = u.id
+            LEFT JOIN areas a ON f.area_id     = a.id
+            WHERE f.id = %s
+        """
+        return self.get_one(sql, (fund_id,))
 
     def get_fund_by_manager(self, manager_id):
-        return self.get_one("SELECT * FROM funds WHERE manager_id = %s", (manager_id,))
+        sql = """
+            SELECT f.*,
+                   u.name AS manager_name,
+                   a.area_name, a.district,
+                   ROUND(f.total_amount - f.spent_amount, 2) AS remaining
+            FROM funds f
+            LEFT JOIN users u ON f.manager_id = u.id
+            LEFT JOIN areas a ON f.area_id     = a.id
+            WHERE f.manager_id = %s
+        """
+        return self.get_one(sql, (manager_id,))
 
-    def add_fund(self, manager_id, total_amount):
-        sql = "INSERT INTO funds (manager_id, total_amount) VALUES (%s, %s)"
-        return self.run_query(sql, (manager_id, total_amount))
+    def add_fund(self, manager_id, area_id, total_amount):
+        """Create new fund — one per manager (enforced by UNIQUE constraint)."""
+        sql = "INSERT INTO funds (manager_id, area_id, total_amount) VALUES (%s, %s, %s)"
+        return self.run_query(sql, (manager_id, area_id, total_amount))
+
+    def topup_fund(self, manager_id, area_id, amount):
+        """Top-up an existing manager fund and optionally update area_id."""
+        sql = """
+            UPDATE funds
+            SET total_amount = total_amount + %s,
+                area_id = COALESCE(%s, area_id)
+            WHERE manager_id = %s
+        """
+        self.run_query(sql, (amount, area_id, manager_id))
+        return self.get_fund_by_manager(manager_id)
 
     def deduct_from_fund(self, manager_id, amount_spent):
         # Transactional deduction to prevent overdraft
@@ -377,23 +422,47 @@ class EaglDB:
     # ============================================================
 
     def get_delivery_by_id(self, del_id):
-        return self.get_one("SELECT * FROM livestock_delivery WHERE id = %s", (del_id,))
+        sql = """
+            SELECT ld.*, b.family_name, b.family_members
+            FROM livestock_delivery ld
+            LEFT JOIN beneficiaries b ON ld.beneficiary_id = b.id
+            WHERE ld.id = %s
+        """
+        return self.get_one(sql, (del_id,))
 
     def get_deliveries_by_coordinator(self, coordinator2_id):
-        return self.get_many("SELECT * FROM livestock_delivery WHERE coordinator2_id = %s", (coordinator2_id,))
+        sql = """
+            SELECT ld.*, b.family_name, b.family_members,
+                   sa.sub_area_name, a.area_name
+            FROM livestock_delivery ld
+            LEFT JOIN beneficiaries b ON ld.beneficiary_id = b.id
+            LEFT JOIN sub_areas sa    ON b.sub_area_id = sa.id
+            LEFT JOIN areas a         ON sa.area_id = a.id
+            WHERE ld.coordinator2_id = %s
+            ORDER BY ld.id DESC
+        """
+        return self.get_many(sql, (coordinator2_id,))
 
     def get_all_deliveries(self):
-        return self.get_many("SELECT * FROM livestock_delivery")
+        sql = """
+            SELECT ld.*, b.family_name, b.family_members
+            FROM livestock_delivery ld
+            LEFT JOIN beneficiaries b ON ld.beneficiary_id = b.id
+            ORDER BY ld.id DESC
+        """
+        return self.get_many(sql)
 
-    def add_delivery(self, beneficiary_id, coordinator2_id, livestock_type):
-        sql = "INSERT INTO livestock_delivery (beneficiary_id, coordinator2_id, livestock_type) VALUES (%s, %s, %s)"
-        return self.run_query(sql, (beneficiary_id, coordinator2_id, livestock_type))
+    def add_delivery(self, beneficiary_id, coordinator2_id, livestock_type, notes=None):
+        sql = """INSERT INTO livestock_delivery
+                 (beneficiary_id, coordinator2_id, livestock_type, notes)
+                 VALUES (%s, %s, %s, %s)"""
+        return self.run_query(sql, (beneficiary_id, coordinator2_id, livestock_type, notes))
 
     def mark_delivered(self, del_id, notes):
-        self.run_query("UPDATE livestock_delivery SET delivered = TRUE, notes = %s WHERE id = %s", (notes, del_id))
+        self.run_query("UPDATE livestock_delivery SET delivered = TRUE, notes = %s, updated_at = NOW() WHERE id = %s", (notes, del_id))
 
     def mark_upskill_done(self, del_id, notes):
-        self.run_query("UPDATE livestock_delivery SET upskill_done = TRUE, notes = %s WHERE id = %s", (notes, del_id))
+        self.run_query("UPDATE livestock_delivery SET upskill_done = TRUE, notes = %s, updated_at = NOW() WHERE id = %s", (notes, del_id))
 
     def delete_delivery(self, del_id):
         self.run_query("DELETE FROM livestock_delivery WHERE id = %s", (del_id,))
@@ -447,13 +516,46 @@ class EaglDB:
     # ============================================================
 
     def get_assignment_by_id(self, assign_id):
-        return self.get_one("SELECT * FROM coordinator2_assignments WHERE id = %s", (assign_id,))
+        sql = """
+            SELECT ca.*,
+                   b.family_name, b.family_members,
+                   sa.sub_area_name,
+                   u.name AS coordinator_name
+            FROM coordinator2_assignments ca
+            LEFT JOIN beneficiaries b ON ca.beneficiary_id = b.id
+            LEFT JOIN sub_areas sa    ON ca.sub_area_id    = sa.id
+            LEFT JOIN users u         ON ca.coordinator2_id = u.id
+            WHERE ca.id = %s
+        """
+        return self.get_one(sql, (assign_id,))
 
     def get_assignments_by_coordinator2(self, coordinator2_id):
-        return self.get_many("SELECT * FROM coordinator2_assignments WHERE coordinator2_id = %s", (coordinator2_id,))
+        sql = """
+            SELECT ca.*,
+                   b.family_name, b.family_members,
+                   sa.sub_area_name
+            FROM coordinator2_assignments ca
+            LEFT JOIN beneficiaries b ON ca.beneficiary_id = b.id
+            LEFT JOIN sub_areas sa    ON ca.sub_area_id    = sa.id
+            WHERE ca.coordinator2_id = %s
+            ORDER BY ca.id DESC
+        """
+        return self.get_many(sql, (coordinator2_id,))
 
     def get_assignments_by_manager(self, manager_id):
-        return self.get_many("SELECT * FROM coordinator2_assignments WHERE manager_id = %s", (manager_id,))
+        sql = """
+            SELECT ca.*,
+                   b.family_name, b.family_members,
+                   sa.sub_area_name,
+                   u.name AS coordinator_name
+            FROM coordinator2_assignments ca
+            LEFT JOIN beneficiaries b ON ca.beneficiary_id = b.id
+            LEFT JOIN sub_areas sa    ON ca.sub_area_id    = sa.id
+            LEFT JOIN users u         ON ca.coordinator2_id = u.id
+            WHERE ca.manager_id = %s
+            ORDER BY ca.id DESC
+        """
+        return self.get_many(sql, (manager_id,))
 
     def add_assignment(self, manager_id, coordinator2_id, beneficiary_id, sub_area_id, assigned_date):
         sql = """INSERT INTO coordinator2_assignments

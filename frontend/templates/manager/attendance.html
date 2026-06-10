@@ -1,106 +1,111 @@
 {% extends "base.html" %}
-{% block title %}Verify Attendance{% endblock %}
-{% block page_title %}Attendance{% endblock %}
+{% block title %}Attendance{% endblock %}
+{% block page_title %}Coordinator Attendance{% endblock %}
 {% block content %}
+
 <div class="toolbar">
-    <div class="toolbar-left">
-        <div class="filter-group">
-            <select id="coordFilter" class="form-control" onchange="loadAttendance()">
-                <option value="">Select Coordinator...</option>
-            </select>
-        </div>
+    <div class="toolbar-left" style="gap:10px;flex-wrap:wrap;">
+        <select id="coordFilter" class="form-control" style="width:auto;min-width:220px;" onchange="loadAttendance()">
+            <option value="">— Select Coordinator —</option>
+        </select>
+        <input type="date" id="dateFilter" class="form-control" style="width:auto;" onchange="loadAttendance()">
+        <button class="btn btn-outline btn-sm" onclick="clearFilters()">✕ Clear</button>
     </div>
+    <div id="attStats" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
 </div>
 
 <div class="table-container">
     <table class="data-table" id="attTable">
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Sub Area ID</th>
-                <th>Check-in Time</th>
-                <th>Status</th>
-                <th>Action</th>
-            </tr>
+            <tr><th>ID</th><th>Coordinator</th><th>Sub Area</th><th>Check-In Time</th><th>Status</th><th>Action</th></tr>
         </thead>
         <tbody>
-            <tr><td colspan="5" class="text-center py-4">Select a coordinator to view attendance records.</td></tr>
+            <tr><td colspan="6" class="text-center" style="padding:40px;color:var(--text-3)">
+                <div style="font-size:2rem;margin-bottom:8px">📋</div>Select a coordinator to view attendance.
+            </td></tr>
         </tbody>
     </table>
 </div>
-{% endblock %}
 
+{% endblock %}
 {% block scripts %}
 <script>
-let session;
-let attData = [];
+let session, attData=[], coordsData=[], subsData=[];
 
 document.addEventListener('DOMContentLoaded', async () => {
     session = getSession();
     if (!session) return;
-    
-    try {
-        const coords = await api('GET', `/users/manager/${session.id}/coordinators`);
-        const sel = document.getElementById('coordFilter');
-        coords.filter(c => c.role === 'field_coordinator').forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = `${c.name} (#${c.id})`;
-            sel.appendChild(opt);
-        });
-    } catch(e) {}
+    const [coords, subs] = await Promise.all([
+        api('GET',`/users/manager/${session.id}/coordinators`).catch(()=>[]),
+        api('GET',`/subareas/manager/${session.id}`).catch(()=>[])
+    ]);
+    coordsData = coords.filter(c=>c.role==='field_coordinator');
+    subsData   = subs;
+    const sel = document.getElementById('coordFilter');
+    coordsData.forEach(c=>{
+        const o=document.createElement('option'); o.value=c.id; o.textContent=`${c.name}`; sel.appendChild(o);
+    });
 });
 
-async function loadAttendance() {
-    const cid = document.getElementById('coordFilter').value;
+function clearFilters() {
+    document.getElementById('coordFilter').value = '';
+    document.getElementById('dateFilter').value  = '';
     const tbody = document.querySelector('#attTable tbody');
-    
-    if (!cid) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Select a coordinator to view attendance records.</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner"></div></td></tr>';
-    
+    tbody.innerHTML='<tr><td colspan="6" class="text-center" style="padding:40px;color:var(--text-3)"><div style="font-size:2rem;margin-bottom:8px">📋</div>Select a coordinator to view attendance.</td></tr>';
+    document.getElementById('attStats').innerHTML='';
+}
+
+async function loadAttendance() {
+    const cid  = document.getElementById('coordFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    const tbody = document.querySelector('#attTable tbody');
+    if (!cid) { clearFilters(); return; }
+    tbody.innerHTML='<tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>';
     try {
-        attData = await api('GET', `/attendance/coordinator/${cid}`).catch(() => []);
+        attData = await api('GET',`/attendance/coordinator/${cid}`).catch(()=>[]);
+        if (date) attData = attData.filter(a => a.check_in_time && a.check_in_time.startsWith(date));
         renderTable();
-    } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${e.message}</td></tr>`;
-    }
+        renderStats();
+    } catch(e) { tbody.innerHTML=`<tr><td colspan="6" class="text-center text-danger">${e.message}</td></tr>`; }
+}
+
+function renderStats() {
+    const verified = attData.filter(a=>a.is_present).length;
+    const pending  = attData.length - verified;
+    document.getElementById('attStats').innerHTML = `
+        <span class="badge badge-success">${verified} Verified</span>
+        <span class="badge badge-warning">${pending} Pending</span>
+        <span class="badge badge-secondary">${attData.length} Total</span>`;
 }
 
 function renderTable() {
     const tbody = document.querySelector('#attTable tbody');
+    const subMap = {}; subsData.forEach(s=>{ subMap[s.id]=s.sub_area_name; });
+    const coordMap = {}; coordsData.forEach(c=>{ coordMap[c.id]=c.name; });
     if (!attData.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No records found.</td></tr>';
+        tbody.innerHTML='<tr><td colspan="6" class="text-center" style="padding:32px;color:var(--text-3)">No attendance records found for this selection.</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = attData.map(a => `
+    tbody.innerHTML = [...attData].sort((a,b)=>b.id-a.id).map(a=>`
         <tr>
             <td class="cell-id">#${a.id}</td>
-            <td>SubArea #${a.sub_area_id}</td>
+            <td><strong>${escapeHtml(coordMap[a.coordinator_id]||'Coord. #'+a.coordinator_id)}</strong></td>
+            <td class="cell-muted">${escapeHtml(subMap[a.sub_area_id]||'Sub Area #'+a.sub_area_id)}</td>
             <td>${formatDateTime(a.check_in_time)}</td>
-            <td>${boolBadge(a.is_present, 'Verified', 'Pending')}</td>
-            <td>
-                ${a.is_present 
-                    ? `<span class="text-success fw-600">✓ Done</span>` 
-                    : `<button class="btn btn-primary btn-sm" onclick="verify(${a.id})">Verify</button>`
-                }
-            </td>
-        </tr>
-    `).join('');
+            <td>${boolBadge(a.is_present,'✓ Verified','⏳ Pending')}</td>
+            <td>${a.is_present
+                ? '<span style="color:var(--success);font-weight:600;font-size:.82rem">✓ Done</span>'
+                : `<button class="btn btn-primary btn-sm" onclick="verify(${a.id})">Verify</button>`
+            }</td>
+        </tr>`).join('');
 }
 
 async function verify(id) {
     try {
-        await api('PUT', `/attendance/verify/${id}`);
-        showNotification('Attendance verified successfully');
+        await api('PUT',`/attendance/verify/${id}`);
+        showNotification('Attendance verified');
         loadAttendance();
-    } catch(e) {
-        showNotification(e.message, 'error');
-    }
+    } catch(e) { showNotification(e.message,'error'); }
 }
 </script>
 {% endblock %}

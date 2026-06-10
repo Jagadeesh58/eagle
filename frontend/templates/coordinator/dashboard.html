@@ -1,106 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Coordinator Dashboard{% endblock %}
-{% block page_title %}Overview{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 {% block content %}
 
 {% if user.role == 'field_coordinator' %}
-<!-- Field Coordinator (Field) Stats -->
 <div class="stats-grid">
-    <div class="stat-card info">
-        <div class="stat-icon">📍</div>
-        <div class="stat-number" id="c1Subareas">-</div>
-        <div class="stat-label">My Sub Areas</div>
-    </div>
-    <div class="stat-card primary">
-        <div class="stat-icon">👨‍👩‍👧‍👦</div>
-        <div class="stat-number" id="c1Families">-</div>
-        <div class="stat-label">Families Registered</div>
-    </div>
-    <div class="stat-card" id="c1AttCard">
-        <div class="stat-icon">📋</div>
-        <div class="stat-number" id="c1AttStatus">-</div>
-        <div class="stat-label">Today's Attendance</div>
-    </div>
+    <div class="stat-card info"><div class="stat-icon">📍</div><div class="stat-number" id="c1Subs">—</div><div class="stat-label">My Sub Areas</div></div>
+    <div class="stat-card primary"><div class="stat-icon">👨‍👩‍👧‍👦</div><div class="stat-number" id="c1Fams">—</div><div class="stat-label">Families Registered</div></div>
+    <div class="stat-card" id="c1AttCard"><div class="stat-icon">📋</div><div class="stat-number" id="c1Att">—</div><div class="stat-label">Today's Check-In</div></div>
+</div>
+<div class="quick-links" style="margin-top:20px">
+    <a href="/coordinator/attendance" class="quick-link-card"><div class="qlc-icon">📋</div><div class="qlc-label">Check In</div><div class="qlc-desc">Log today's field attendance</div></a>
+    <a href="/coordinator/beneficiaries" class="quick-link-card"><div class="qlc-icon">👨‍👩‍👧‍👦</div><div class="qlc-label">Register Family</div><div class="qlc-desc">Add new beneficiary family</div></a>
 </div>
 {% endif %}
 
 {% if user.role == 'delivery_coordinator' %}
-<!-- Delivery Coordinator (Delivery) Stats -->
 <div class="stats-grid">
-    <div class="stat-card warning">
-        <div class="stat-icon">📝</div>
-        <div class="stat-number" id="c2Assign">-</div>
-        <div class="stat-label">Total Assignments</div>
-    </div>
-    <div class="stat-card info">
-        <div class="stat-icon">🚛</div>
-        <div class="stat-number" id="c2Pending">-</div>
-        <div class="stat-label">Pending Deliveries</div>
-    </div>
-    <div class="stat-card success">
-        <div class="stat-icon">✅</div>
-        <div class="stat-number" id="c2Done">-</div>
-        <div class="stat-label">Completed Deliveries</div>
-    </div>
+    <div class="stat-card warning"><div class="stat-icon">📝</div><div class="stat-number" id="c2Assign">—</div><div class="stat-label">Total Assignments</div></div>
+    <div class="stat-card danger"><div class="stat-icon">⏳</div><div class="stat-number" id="c2Pending">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card info"><div class="stat-icon">📦</div><div class="stat-number" id="c2Delivered">—</div><div class="stat-label">Delivered</div></div>
+    <div class="stat-card success"><div class="stat-icon">✅</div><div class="stat-number" id="c2Done">—</div><div class="stat-label">Completed</div></div>
+</div>
+<div class="quick-links" style="margin-top:20px">
+    <a href="/coordinator/assignments" class="quick-link-card"><div class="qlc-icon">📝</div><div class="qlc-label">My Assignments</div><div class="qlc-desc">View assigned deliveries</div></a>
+    <a href="/coordinator/deliveries" class="quick-link-card"><div class="qlc-icon">🚛</div><div class="qlc-label">Deliveries</div><div class="qlc-desc">Log delivery records</div></a>
 </div>
 {% endif %}
 
-<div class="card mt-24">
-    <div class="card-body empty-state">
-        <div class="empty-icon">👋</div>
-        <div class="empty-title">Welcome, {{ user.name }}!</div>
-        <div class="empty-text">Use the sidebar menu to navigate through your daily tasks and assignments.</div>
-    </div>
-</div>
 {% endblock %}
-
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     const session = getSession();
     if (!session) return;
-    
     if (session.role === 'field_coordinator') {
-        try {
-            const [subs, bens, att] = await Promise.all([
-                api('GET', `/subareas/coordinator/${session.id}`).catch(() => []),
-                api('GET', `/beneficiaries/collector/${session.id}`).catch(() => []),
-                api('GET', `/attendance/today/${session.id}`).catch(() => null)
-            ]);
-            
-            document.getElementById('c1Subareas').textContent = subs.length;
-            document.getElementById('c1Families').textContent = bens.length;
-            
-            const attCard = document.getElementById('c1AttCard');
-            const attStatus = document.getElementById('c1AttStatus');
-            
-            if (att) {
-                attStatus.textContent = 'Checked In';
-                attCard.classList.add('success');
-            } else {
-                attStatus.textContent = 'Pending';
-                attCard.classList.add('danger');
-            }
-        } catch (e) {
-            console.error(e);
+        const [subs, bens, att] = await Promise.all([
+            api('GET',`/subareas/coordinator/${session.id}`).catch(()=>[]),
+            api('GET',`/beneficiaries/collector/${session.id}`).catch(()=>[]),
+            api('GET',`/attendance/today/${session.id}`).catch(()=>null)
+        ]);
+        document.getElementById('c1Subs').textContent = subs.length;
+        document.getElementById('c1Fams').textContent = bens.length;
+        const card = document.getElementById('c1AttCard');
+        if (att) {
+            document.getElementById('c1Att').textContent = 'Checked In';
+            card.classList.add('success');
+        } else {
+            document.getElementById('c1Att').textContent = 'Not Yet';
+            card.classList.add('warning');
         }
     } else if (session.role === 'delivery_coordinator') {
-        try {
-            const [assigns, deliveries] = await Promise.all([
-                api('GET', `/assignments/coordinator/${session.id}`).catch(() => []),
-                api('GET', `/delivery/coordinator/${session.id}`).catch(() => [])
-            ]);
-            
-            document.getElementById('c2Assign').textContent = assigns.length;
-            
-            const pending = assigns.filter(a => a.status === 'pending').length;
-            const done = assigns.filter(a => a.status === 'completed').length;
-            
-            document.getElementById('c2Pending').textContent = pending;
-            document.getElementById('c2Done').textContent = done;
-        } catch (e) {
-            console.error(e);
-        }
+        const assigns = await api('GET',`/assignments/coordinator/${session.id}`).catch(()=>[]);
+        document.getElementById('c2Assign').textContent    = assigns.length;
+        document.getElementById('c2Pending').textContent   = assigns.filter(a=>a.status==='pending').length;
+        document.getElementById('c2Delivered').textContent = assigns.filter(a=>a.status==='delivered').length;
+        document.getElementById('c2Done').textContent      = assigns.filter(a=>a.status==='completed').length;
     }
 });
 </script>

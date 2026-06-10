@@ -1,111 +1,100 @@
 {% extends "base.html" %}
-{% block title %}GPS Check-In{% endblock %}
+{% block title %}Attendance{% endblock %}
 {% block page_title %}Attendance Check-In{% endblock %}
 {% block content %}
-<div class="card" style="max-width: 500px; margin-bottom: 24px;">
-    <div class="card-header">
-        <h3>Submit Today's Attendance</h3>
+
+<div style="display:grid;grid-template-columns:360px 1fr;gap:20px;">
+    <!-- Check-In Card -->
+    <div class="card" style="height:fit-content">
+        <div class="card-header"><h3>Submit Attendance</h3></div>
+        <div class="card-body">
+            <div id="todayStatus" style="margin-bottom:16px;display:none;"></div>
+            <form onsubmit="return submitAttendance(event)">
+                <div class="form-group">
+                    <label>Sub Area <span class="required">*</span></label>
+                    <select id="subAreaSel" class="form-control" required>
+                        <option value="">— Select your sub area —</option>
+                    </select>
+                    <small class="form-hint">You must be physically present at this location.</small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="checkinBtn" style="margin-top:4px">
+                    ✅ Check In Now
+                </button>
+            </form>
+        </div>
     </div>
-    <div class="card-body">
-        <form onsubmit="return submitAttendance(event)">
-            <div class="form-group">
-                <label>Sub Area <span class="required">*</span></label>
-                <select id="subAreaSel" class="form-control" required>
-                    <option value="">Select Sub Area...</option>
-                </select>
-                <div class="form-help">Ensure you are physically at this location before checking in.</div>
-            </div>
-            <button type="submit" class="btn btn-primary btn-block" id="checkinBtn">
-                ✅ Check In
-            </button>
-        </form>
+
+    <!-- History Table -->
+    <div class="table-container">
+        <table class="data-table" id="attTable">
+            <thead>
+                <tr><th>ID</th><th>Sub Area</th><th>Check-In Time</th><th>Verified By Manager</th></tr>
+            </thead>
+            <tbody><tr><td colspan="4" class="text-center"><div class="spinner"></div></td></tr></tbody>
+        </table>
     </div>
 </div>
 
-<div class="table-container">
-    <table class="data-table" id="attTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Sub Area</th>
-                <th>Check-In Time</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="4" class="text-center"><div class="spinner"></div></td></tr>
-        </tbody>
-    </table>
-</div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-let session;
-let subsData = [];
+let session, subsData=[];
 
 document.addEventListener('DOMContentLoaded', async () => {
     session = getSession();
     if (!session) return;
-    
     try {
-        subsData = await api('GET', `/subareas/coordinator/${session.id}`).catch(() => []);
+        subsData = await api('GET',`/subareas/coordinator/${session.id}`).catch(()=>[]);
         const sel = document.getElementById('subAreaSel');
         subsData.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = s.sub_area_name;
-            sel.appendChild(opt);
+            const o=document.createElement('option'); o.value=s.id; o.textContent=s.sub_area_name; sel.appendChild(o);
         });
     } catch(e) {}
-    
-    loadAttendance();
+    loadHistory();
+    checkToday();
 });
 
-async function loadAttendance() {
+async function checkToday() {
     try {
-        const attData = await api('GET', `/attendance/coordinator/${session.id}`).catch(() => []);
+        const att = await api('GET',`/attendance/today/${session.id}`).catch(()=>null);
+        const el  = document.getElementById('todayStatus');
+        if (att) {
+            el.style.display='block';
+            el.innerHTML=`<div style="background:var(--success-l);border:1px solid #A7F3D0;border-radius:var(--radius-sm);padding:10px 14px;font-size:.85rem;color:var(--success);font-weight:600">✅ You have already checked in today.</div>`;
+        }
+    } catch(e) {}
+}
+
+async function loadHistory() {
+    try {
+        const data = await api('GET',`/attendance/coordinator/${session.id}`).catch(()=>[]);
         const tbody = document.querySelector('#attTable tbody');
-        
-        if (!attData.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No attendance history found.</td></tr>';
+        const subMap = {}; subsData.forEach(s=>{ subMap[s.id]=s.sub_area_name; });
+        if (!data.length) {
+            tbody.innerHTML='<tr><td colspan="4" class="text-center" style="padding:40px;color:var(--text-3)"><div style="font-size:2rem;margin-bottom:8px">📋</div>No attendance history yet.</td></tr>';
             return;
         }
-        
-        tbody.innerHTML = attData.sort((a,b) => b.id - a.id).map(a => `
+        tbody.innerHTML = [...data].sort((a,b)=>b.id-a.id).map(a=>`
             <tr>
                 <td class="cell-id">#${a.id}</td>
-                <td>SubArea #${a.sub_area_id}</td>
+                <td><strong>${escapeHtml(subMap[a.sub_area_id]||'Sub Area #'+a.sub_area_id)}</strong></td>
                 <td>${formatDateTime(a.check_in_time)}</td>
-                <td>${boolBadge(a.is_present, 'Verified', 'Pending')}</td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        showNotification(e.message, 'error');
-    }
+                <td>${boolBadge(a.is_present,'✓ Verified','⏳ Pending verification')}</td>
+            </tr>`).join('');
+    } catch(e) {}
 }
 
 async function submitAttendance(e) {
     e.preventDefault();
     const btn = document.getElementById('checkinBtn');
-    const sub_area_id = parseInt(document.getElementById('subAreaSel').value);
-    
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
-    
+    btn.disabled=true; btn.textContent='Checking in...';
     try {
-        await api('POST', '/attendance', {
-            coordinator_id: session.id,
-            sub_area_id: sub_area_id
-        });
-        showNotification('Attendance submitted successfully');
-        loadAttendance();
-    } catch (err) {
-        showNotification(err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '✅ Check In';
-    }
+        await api('POST','/attendance',{ coordinator_id:session.id, sub_area_id:parseInt(document.getElementById('subAreaSel').value) });
+        showNotification('✅ Attendance submitted successfully');
+        loadHistory();
+        checkToday();
+    } catch(err) { showNotification(err.message,'error'); }
+    finally { btn.disabled=false; btn.textContent='✅ Check In Now'; }
 }
 </script>
 {% endblock %}

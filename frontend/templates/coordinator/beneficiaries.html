@@ -1,129 +1,129 @@
 {% extends "base.html" %}
-{% block title %}Add Families{% endblock %}
+{% block title %}Register Families{% endblock %}
 {% block page_title %}Register Families{% endblock %}
 {% block content %}
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header">
-        <h3>Add New Family Record</h3>
+
+<div style="display:grid;grid-template-columns:400px 1fr;gap:20px;">
+    <!-- Registration Form -->
+    <div class="card" style="height:fit-content">
+        <div class="card-header"><h3>Add New Family</h3></div>
+        <div class="card-body">
+            <form id="benForm" onsubmit="return saveBen(event)">
+                <div class="form-group">
+                    <label>Family Name <span class="required">*</span></label>
+                    <input type="text" id="bName" class="form-control" placeholder="e.g. Reddy Family" required>
+                </div>
+                <div class="form-group">
+                    <label>Sub Area <span class="required">*</span></label>
+                    <select id="bSub" class="form-control" required>
+                        <option value="">— Select your sub area —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Total Family Members <span class="required">*</span></label>
+                    <input type="number" id="bMembers" class="form-control" min="1" max="20" placeholder="e.g. 4" required oninput="calcPCI()">
+                </div>
+                <div class="form-group">
+                    <label>Annual Income (₹) <span class="required">*</span></label>
+                    <input type="number" id="bIncome" class="form-control" min="0" step="1000" placeholder="e.g. 48000" required oninput="calcPCI()">
+                </div>
+                <div id="pciPreview" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:.85rem">
+                    Per Capita Income: <strong id="pciVal" style="color:var(--warning)">—</strong>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="saveBtn">Register Family</button>
+            </form>
+        </div>
     </div>
-    <div class="card-body">
-        <form id="benForm" class="form-row" onsubmit="return saveBen(event)">
-            <div class="form-group">
-                <label>Family Name <span class="required">*</span></label>
-                <input type="text" id="bName" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label>Sub Area <span class="required">*</span></label>
-                <select id="bSub" class="form-control" required></select>
-            </div>
-            <div class="form-group">
-                <label>Total Family Members <span class="required">*</span></label>
-                <input type="number" id="bMembers" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label>Annual Income (₹) <span class="required">*</span></label>
-                <input type="number" id="bIncome" class="form-control" required>
-            </div>
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <button type="submit" class="btn btn-primary" id="saveBtn">Register Family</button>
-            </div>
-        </form>
+
+    <!-- My Registrations Table -->
+    <div class="table-container">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <h3 style="margin:0;font-size:.9rem">My Registrations</h3>
+            <span class="badge badge-info" id="benCount">0 families</span>
+        </div>
+        <table class="data-table" id="bensTable">
+            <thead>
+                <tr><th>ID</th><th>Family Name</th><th>Sub Area</th><th>Members</th><th>Per Capita</th><th>Status</th></tr>
+            </thead>
+            <tbody><tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr></tbody>
+        </table>
     </div>
 </div>
 
-<div class="table-container">
-    <table class="data-table" id="bensTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Family Name</th>
-                <th>Sub Area</th>
-                <th>Members</th>
-                <th>Annual Income</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
-        </tbody>
-    </table>
-</div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-let session;
-let bensData = [];
+let session, subsData=[];
 
 document.addEventListener('DOMContentLoaded', async () => {
     session = getSession();
     if (!session) return;
-    
     try {
-        const subs = await api('GET', `/subareas/coordinator/${session.id}`).catch(() => []);
+        subsData = await api('GET',`/subareas/coordinator/${session.id}`).catch(()=>[]);
         const sel = document.getElementById('bSub');
-        subs.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = s.sub_area_name;
-            sel.appendChild(opt);
+        subsData.forEach(s => {
+            const o=document.createElement('option'); o.value=s.id; o.textContent=s.sub_area_name; sel.appendChild(o);
         });
     } catch(e) {}
-    
     loadBens();
 });
 
-async function loadBens() {
-    try {
-        bensData = await api('GET', `/beneficiaries/collector/${session.id}`).catch(() => []);
-        renderTable();
-    } catch (e) {
-        showNotification(e.message, 'error');
-    }
+function calcPCI() {
+    const members = parseInt(document.getElementById('bMembers').value)||0;
+    const income  = parseFloat(document.getElementById('bIncome').value)||0;
+    const preview = document.getElementById('pciPreview');
+    if (members > 0 && income >= 0) {
+        const pci = income / members;
+        document.getElementById('pciVal').textContent = formatCurrency(pci);
+        preview.style.display = 'block';
+    } else { preview.style.display = 'none'; }
 }
 
-function renderTable() {
-    const tbody = document.querySelector('#bensTable tbody');
-    if (!bensData.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No families registered yet.</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = bensData.sort((a,b) => b.id - a.id).map(b => `
-        <tr>
-            <td class="cell-id">#${b.id}</td>
-            <td><strong>${escapeHtml(b.family_name)}</strong></td>
-            <td>SubArea #${b.sub_area_id}</td>
-            <td>${b.family_members}</td>
-            <td>${formatCurrency(b.annual_income)}</td>
-            <td>${boolBadge(b.is_approved, 'Approved', 'Pending')}</td>
-        </tr>
-    `).join('');
+async function loadBens() {
+    try {
+        const data = await api('GET',`/beneficiaries/collector/${session.id}`).catch(()=>[]);
+        const tbody = document.querySelector('#bensTable tbody');
+        document.getElementById('benCount').textContent = data.length + ' famil' + (data.length===1?'y':'ies');
+        const subMap={}; subsData.forEach(s=>{ subMap[s.id]=s.sub_area_name; });
+        if (!data.length) {
+            tbody.innerHTML='<tr><td colspan="6" class="text-center" style="padding:40px;color:var(--text-3)"><div style="font-size:2rem;margin-bottom:8px">👨‍👩‍👧‍👦</div>No families registered yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(b => {
+            const pci = b.family_members>0 ? parseFloat(b.annual_income||0)/b.family_members : 0;
+            return `<tr>
+                <td class="cell-id">#${b.id}</td>
+                <td><strong>${escapeHtml(b.family_name)}</strong></td>
+                <td class="cell-muted">${escapeHtml(subMap[b.sub_area_id]||'#'+b.sub_area_id)}</td>
+                <td>${b.family_members}</td>
+                <td class="fw-600" style="color:var(--warning)">${formatCurrency(pci)}</td>
+                <td>${b.is_approved
+                    ? '<span style="color:var(--success);font-weight:600;font-size:.85rem">✅ Approved</span>'
+                    : '<span style="color:var(--warning);font-weight:600;font-size:.85rem">⏳ Pending</span>'
+                }</td>
+            </tr>`;
+        }).join('');
+    } catch(e) { showNotification(e.message,'error'); }
 }
 
 async function saveBen(e) {
     e.preventDefault();
     const btn = document.getElementById('saveBtn');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-    
+    btn.disabled=true; btn.textContent='Registering...';
     try {
-        await api('POST', '/beneficiaries', {
-            family_name: document.getElementById('bName').value,
-            sub_area_id: parseInt(document.getElementById('bSub').value),
+        await api('POST','/beneficiaries',{
+            family_name:    document.getElementById('bName').value.trim(),
+            sub_area_id:    parseInt(document.getElementById('bSub').value),
             family_members: parseInt(document.getElementById('bMembers').value),
-            annual_income: parseFloat(document.getElementById('bIncome').value),
-            collector_id: session.id
+            annual_income:  parseFloat(document.getElementById('bIncome').value),
+            collector_id:   session.id
         });
         showNotification('Family registered successfully');
         document.getElementById('benForm').reset();
+        document.getElementById('pciPreview').style.display='none';
         loadBens();
-    } catch (err) {
-        showNotification(err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Register Family';
-    }
+    } catch(err) { showNotification(err.message,'error'); }
+    finally { btn.disabled=false; btn.textContent='Register Family'; }
 }
 </script>
 {% endblock %}

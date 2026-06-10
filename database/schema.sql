@@ -53,15 +53,24 @@ CREATE TABLE IF NOT EXISTS areas (
 
 -- ============================================================
 -- TABLE 3: funds
+-- ONE fund record per manager (enforced in backend logic)
+-- area_id links the fund to the manager's primary coverage area
 -- ============================================================
 CREATE TABLE IF NOT EXISTS funds (
     id            INT PRIMARY KEY AUTO_INCREMENT,
-    manager_id    INT,
-    total_amount  DECIMAL(10,2),
-    spent_amount  DECIMAL(10,2) DEFAULT 0.00,
+    manager_id    INT UNIQUE,          -- enforces one fund per manager
+    area_id       INT,                 -- which area this budget covers
+    total_amount  DECIMAL(12,2),
+    spent_amount  DECIMAL(12,2) DEFAULT 0.00,
     created_at    DATETIME DEFAULT NOW(),
-    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE CASCADE
+    updated_at    DATETIME DEFAULT NOW() ON UPDATE NOW(),
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (area_id)    REFERENCES areas(id)  ON DELETE SET NULL
 );
+-- Migration note for existing DB:
+-- ALTER TABLE funds ADD COLUMN area_id INT REFERENCES areas(id) ON DELETE SET NULL;
+-- ALTER TABLE funds ADD COLUMN updated_at DATETIME DEFAULT NOW() ON UPDATE NOW();
+-- ALTER TABLE funds ADD UNIQUE KEY uq_manager (manager_id);
 
 -- ============================================================
 -- TABLE 4: sub_areas

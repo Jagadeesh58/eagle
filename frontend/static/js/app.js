@@ -1,112 +1,83 @@
 /* ============================================================
-   EAGL — Shared JavaScript Utilities
-   Session, API calls, Notifications, Modals, Navigation
+   EAGL — Shared JavaScript Utilities  v2.0
+   Session, API, Notifications, Modals, Navigation
    ============================================================ */
 
-const API = 'http://localhost:8000/api';  // backend server URL
+const API = 'http://localhost:8000/api';
 
-// ============================================================
-// COOKIE MANAGEMENT
-// ============================================================
+// ── Cookie Helpers ───────────────────────────────────────────
 function setCookie(name, value, days = 7) {
     const d = new Date();
     d.setTime(d.getTime() + days * 86400000);
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
 }
-
 function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : null;
+    const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[2]) : null;
 }
-
 function deleteCookie(name) {
     document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 }
 
-// ============================================================
-// SECURITY UTILITIES
-// ============================================================
+// ── Security ─────────────────────────────────────────────────
 function escapeHtml(unsafe) {
     if (unsafe == null) return '';
     return String(unsafe)
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-// ============================================================
-// SESSION MANAGEMENT
-// ============================================================
+// ── Session ──────────────────────────────────────────────────
 function getSession() {
-    const id     = getCookie('user_id');
-    const name   = getCookie('user_name');
-    const role   = getCookie('user_role');
-    const email  = getCookie('user_email');
-    const mobile = getCookie('user_mobile');
-    if (id && role) return { id: parseInt(id), name, role, email, mobile };
-    return null;
+    const id   = getCookie('user_id');
+    const role = getCookie('user_role');
+    if (!id || !role) return null;
+    return {
+        id:     parseInt(id),
+        name:   getCookie('user_name')   || '',
+        role,
+        email:  getCookie('user_email')  || '',
+        mobile: getCookie('user_mobile') || ''
+    };
 }
-
 function setSession(user) {
-    setCookie('user_id',         user.id);
-    setCookie('user_name',       user.name);
-    setCookie('user_role',       user.role);
-    setCookie('user_email',      user.email);
-    setCookie('user_mobile',     user.mobile || '');
-    setCookie('is_first_login',  String(user.is_first_login ?? 0));
+    setCookie('user_id',        user.id);
+    setCookie('user_name',      user.name);
+    setCookie('user_role',      user.role);
+    setCookie('user_email',     user.email);
+    setCookie('user_mobile',    user.mobile || '');
+    setCookie('is_first_login', String(user.is_first_login ?? 0));
 }
-
 function clearSession() {
-    ['user_id', 'user_name', 'user_role', 'user_email', 'user_mobile', 'is_first_login'].forEach(deleteCookie);
+    ['user_id','user_name','user_role','user_email','user_mobile','is_first_login'].forEach(deleteCookie);
 }
-
 function logout() {
     clearSession();
     window.location.href = '/';
 }
-
 function requireAuth(allowedRoles) {
     const s = getSession();
     if (!s) { window.location.href = '/'; return null; }
-    if (allowedRoles && !allowedRoles.includes(s.role)) {
-        window.location.href = '/';
-        return null;
-    }
+    if (allowedRoles && !allowedRoles.includes(s.role)) { window.location.href = '/'; return null; }
     return s;
 }
 
-// ============================================================
-// API HELPER
-// ============================================================
+// ── API Helper ───────────────────────────────────────────────
 async function api(method, endpoint, body = null) {
-    const opts = {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-    };
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
-
     const res = await fetch(API + endpoint, opts);
-
-    if (res.status === 401) {
-        logout(); // Session expired or invalid
-        throw new Error("Session expired. Please log in again.");
-    }
-
+    if (res.status === 401) { logout(); throw new Error('Session expired. Please log in again.'); }
     if (!res.ok) {
         let msg = `Error ${res.status}`;
         try { const j = await res.json(); msg = j.detail || msg; } catch(e) {}
         throw new Error(msg);
     }
-
     const text = await res.text();
     return text ? JSON.parse(text) : null;
 }
 
-// ============================================================
-// NOTIFICATION / TOAST SYSTEM
-// ============================================================
+// ── Toast Notifications ──────────────────────────────────────
 function showNotification(message, type = 'success') {
     let container = document.getElementById('notif-container');
     if (!container) {
@@ -115,185 +86,135 @@ function showNotification(message, type = 'success') {
         container.className = 'notification-container';
         document.body.appendChild(container);
     }
-
     const el = document.createElement('div');
     el.className = `notification ${type}`;
     const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
-    el.innerHTML = `<span>${icons[type] || ''}</span><span>${message}</span>`;
+    el.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(message)}</span>`;
     container.appendChild(el);
-
-    setTimeout(() => {
-        el.classList.add('hiding');
-        setTimeout(() => el.remove(), 300);
-    }, 3500);
+    setTimeout(() => { el.classList.add('hiding'); setTimeout(() => el.remove(), 300); }, 3500);
 }
 
-// ============================================================
-// MODAL MANAGEMENT
-// ============================================================
+// ── Modal Management ─────────────────────────────────────────
 function openModal(modalId) {
     const m = document.getElementById(modalId);
-    if (m) {
-        m.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
+    if (m) { m.classList.add('active'); document.body.style.overflow = 'hidden'; }
 }
-
 function closeModal(modalId) {
     const m = document.getElementById(modalId);
-    if (m) {
-        m.classList.remove('active');
-        document.body.style.overflow = '';
-    }
+    if (m) { m.classList.remove('active'); document.body.style.overflow = ''; }
 }
-
 function closeAllModals() {
-    document.querySelectorAll('.modal-overlay.active').forEach(m => {
-        m.classList.remove('active');
-    });
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
     document.body.style.overflow = '';
 }
 
-// Close modal on backdrop click
 document.addEventListener('click', e => {
     if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
         document.body.style.overflow = '';
     }
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllModals(); });
 
-// Close modal on Escape
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeAllModals();
-});
+// ── Custom Confirm Dialog (replaces window.confirm) ──────────
+let _confirmResolve = null;
 
-// ============================================================
-// FORMATTERS
-// ============================================================
+function confirmAction(message, title = 'Confirm Action', okLabel = 'Confirm', danger = true) {
+    return new Promise(resolve => {
+        _confirmResolve = resolve;
+        const titleEl = document.getElementById('confirmModalTitle');
+        const msgEl   = document.getElementById('confirmModalMessage');
+        const okBtn   = document.getElementById('confirmModalOkBtn');
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl)   msgEl.textContent   = message;
+        if (okBtn) {
+            okBtn.textContent = okLabel;
+            okBtn.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        }
+        openModal('genericConfirmModal');
+    });
+}
+function acceptConfirm() {
+    closeModal('genericConfirmModal');
+    if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+}
+function rejectConfirm() {
+    closeModal('genericConfirmModal');
+    if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+}
+
+// ── Sign-Out Modal ───────────────────────────────────────────
+function confirmLogout() {
+    openModal('signOutModal');
+}
+
+// ── Formatters ───────────────────────────────────────────────
 function formatDate(dateStr) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
 function formatDateTime(dateStr) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(dateStr).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
 }
-
 function formatCurrency(amount) {
-    if (amount == null) return '—';
+    if (amount == null || amount === '') return '—';
     return '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ============================================================
-// BADGE RENDERERS
-// ============================================================
+// ── Badge Renderers ──────────────────────────────────────────
 function roleBadge(role) {
-    const cls = {
-        admin: 'badge-admin',
-        manager: 'badge-manager',
-        field_coordinator: 'badge-coordinator1',
-        delivery_coordinator: 'badge-coordinator2',
-    };
-    const label = {
-        admin: 'Admin',
-        manager: 'Manager',
-        field_coordinator: 'Field Coordinator',
-        delivery_coordinator: 'Delivery Coordinator',
-    };
-    return `<span class="badge ${cls[role] || 'badge-secondary'}">${label[role] || role}</span>`;
+    const cls   = { admin:'badge-admin', manager:'badge-manager', field_coordinator:'badge-coordinator1', delivery_coordinator:'badge-coordinator2' };
+    const label = { admin:'Admin', manager:'Manager', field_coordinator:'Field Coordinator', delivery_coordinator:'Delivery Coordinator' };
+    return `<span class="badge ${cls[role]||'badge-secondary'}">${label[role]||role}</span>`;
 }
-
 function statusBadge(status) {
-    const cls = {
-        pending: 'badge-pending',
-        delivered: 'badge-delivered',
-        completed: 'badge-completed',
-    };
-    return `<span class="badge ${cls[status] || 'badge-secondary'}">${status || '—'}</span>`;
+    const cls = { pending:'badge-pending', delivered:'badge-delivered', completed:'badge-completed' };
+    return `<span class="badge ${cls[status]||'badge-secondary'}">${status||'—'}</span>`;
 }
-
 function boolBadge(val, trueText = 'Yes', falseText = 'No') {
-    return val
-        ? `<span class="badge badge-success">${trueText}</span>`
-        : `<span class="badge badge-danger">${falseText}</span>`;
+    return val ? `<span class="badge badge-success">${trueText}</span>` : `<span class="badge badge-danger">${falseText}</span>`;
 }
 
-// ============================================================
-// TABLE SEARCH FILTER
-// ============================================================
+// ── Table Quick Search ───────────────────────────────────────
 function setupTableSearch(inputId, tableId) {
     const input = document.getElementById(inputId);
     if (!input) return;
     input.addEventListener('input', () => {
         const q = input.value.toLowerCase();
-        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-        rows.forEach(row => {
+        document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
             row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });
 }
 
-// ============================================================
-// CONFIRM DIALOG
-// ============================================================
-function confirmAction(message) {
-    return new Promise(resolve => {
-        // Use simple confirm for now
-        resolve(window.confirm(message));
-    });
-}
-
-// ============================================================
-// SIDEBAR NAVIGATION SETUP
-// ============================================================
+// ── Sidebar Navigation ───────────────────────────────────────
 function setupNavigation() {
     const session = getSession();
     if (!session) return;
-
-    // Set user info in sidebar footer
     const avatarEl = document.querySelector('.sidebar-footer .user-avatar');
     const nameEl   = document.querySelector('.sidebar-footer .user-meta .name');
     const roleEl   = document.querySelector('.sidebar-footer .user-meta .role-text');
     if (avatarEl) avatarEl.textContent = (session.name || 'U')[0].toUpperCase();
-    if (nameEl)   nameEl.textContent = session.name;
-    if (roleEl)   roleEl.textContent = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-    // Set topbar info
+    if (nameEl)   nameEl.textContent   = session.name;
+    if (roleEl)   roleEl.textContent   = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const topName = document.getElementById('topUserName');
     const topRole = document.getElementById('topUserRole');
     if (topName) topName.textContent = session.name;
-    if (topRole) {
-        topRole.textContent = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    }
-
-    // Highlight active nav item
+    if (topRole) topRole.textContent = session.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const path = window.location.pathname;
     document.querySelectorAll('.nav-menu a').forEach(a => {
-        if (a.getAttribute('href') === path) {
-            a.classList.add('active');
-        }
+        a.classList.toggle('active', a.getAttribute('href') === path);
     });
 }
 
-// ============================================================
-// INIT
-// ============================================================
+function toggleSidebar() {
+    document.getElementById('sidebar')?.classList.toggle('open');
+    document.getElementById('sidebarOverlay')?.classList.toggle('active');
+}
+
+// ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const session = getSession();
-    if (session) {
-        setupNavigation();
-    }
+    if (session) setupNavigation();
 });
-
-// ============================================================
-// MOBILE SIDEBAR
-// ============================================================
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    if (sidebar) sidebar.classList.toggle('open');
-    if (overlay) overlay.classList.toggle('active');
-}

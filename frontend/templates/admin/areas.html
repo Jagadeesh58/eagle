@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Manage Areas{% endblock %}
-{% block page_title %}Areas{% endblock %}
+{% block title %}Areas{% endblock %}
+{% block page_title %}Area Management{% endblock %}
 {% block content %}
+
 <div class="toolbar">
     <div class="toolbar-left">
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Search areas...">
+            <input type="text" id="searchInput" placeholder="Search area, district...">
         </div>
     </div>
     <button class="btn btn-primary" onclick="openAreaModal()">+ Add Area</button>
@@ -15,28 +16,18 @@
 <div class="table-container">
     <table class="data-table" id="areasTable">
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Area Name</th>
-                <th>District</th>
-                <th>Poverty %</th>
-                <th>Manager</th>
-                <th>Created At</th>
-                <th>Actions</th>
-            </tr>
+            <tr><th>ID</th><th>Area Name</th><th>District</th><th>Poverty Rate</th><th>Manager</th><th>Sub Areas</th><th>Created</th><th>Actions</th></tr>
         </thead>
-        <tbody>
-            <tr><td colspan="7" class="text-center"><div class="spinner"></div></td></tr>
-        </tbody>
+        <tbody><tr><td colspan="8" class="text-center"><div class="spinner"></div></td></tr></tbody>
     </table>
 </div>
 
-<!-- Modal -->
+<!-- Area Modal -->
 <div class="modal-overlay" id="areaModal">
     <div class="modal">
         <div class="modal-header">
-            <h3 id="modalTitle">Add Area</h3>
-            <button class="modal-close" onclick="closeModal('areaModal')">×</button>
+            <h3 id="areaModalTitle">Add Area</h3>
+            <button class="modal-close" onclick="closeModal('areaModal')">✕</button>
         </div>
         <form id="areaForm" onsubmit="return saveArea(event)">
             <div class="modal-body">
@@ -44,102 +35,102 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Area Name <span class="required">*</span></label>
-                        <input type="text" id="areaName" class="form-control" required>
+                        <input type="text" id="areaName" class="form-control" placeholder="e.g. North Rangareddy" required>
                     </div>
                     <div class="form-group">
                         <label>District <span class="required">*</span></label>
-                        <input type="text" id="areaDistrict" class="form-control" required>
+                        <input type="text" id="areaDistrict" class="form-control" placeholder="e.g. Rangareddy" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Poverty Percent <span class="required">*</span></label>
-                        <input type="number" step="0.01" id="areaPoverty" class="form-control" required>
+                        <label>Poverty Rate (%) <span class="required">*</span></label>
+                        <input type="number" step="0.1" min="0" max="100" id="areaPoverty" class="form-control" placeholder="e.g. 42.5" required>
                     </div>
                     <div class="form-group">
-                        <label>Manager <span class="required">*</span></label>
+                        <label>Assign Manager <span class="required">*</span></label>
                         <select id="areaManager" class="form-control" required>
-                            <option value="">Select Manager</option>
+                            <option value="">— Select Manager —</option>
                         </select>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('areaModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="saveBtn">Confirm</button>
+                <button type="submit" class="btn btn-primary" id="saveAreaBtn">Confirm</button>
             </div>
         </form>
     </div>
 </div>
-{% endblock %}
 
+{% endblock %}
 {% block scripts %}
 <script>
 let areasData = [];
 let managersData = [];
+let subAreasData = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
     setupTableSearch('searchInput', 'areasTable');
-    await loadManagers();
+    const [users, subs] = await Promise.all([
+        api('GET', '/users').catch(()=>[]),
+        api('GET', '/subareas').catch(()=>[])
+    ]);
+    managersData = users.filter(u => u.role === 'manager');
+    subAreasData = subs;
+    const sel = document.getElementById('areaManager');
+    managersData.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = `${m.name}`;
+        sel.appendChild(o);
+    });
     loadAreas();
 });
-
-async function loadManagers() {
-    try {
-        const users = await api('GET', '/users');
-        managersData = users.filter(u => u.role === 'manager');
-        const sel = document.getElementById('areaManager');
-        managersData.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = `${m.name} (#${m.id})`;
-            sel.appendChild(opt);
-        });
-    } catch (e) {
-        showNotification('Failed to load managers', 'error');
-    }
-}
 
 async function loadAreas() {
     try {
         areasData = await api('GET', '/areas');
         renderTable();
-    } catch (e) {
-        showNotification(e.message, 'error');
-    }
+    } catch(e) { showNotification(e.message, 'error'); }
 }
 
 function renderTable() {
     const tbody = document.querySelector('#areasTable tbody');
     if (!areasData.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No areas found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:40px;color:var(--text-3)"><div style="font-size:2rem;margin-bottom:8px">🗺️</div>No areas created yet.</td></tr>';
         return;
     }
-    
+    const mgrMap = {};
+    managersData.forEach(m => { mgrMap[m.id] = m.name; });
     tbody.innerHTML = areasData.map(a => {
-        const mgr = managersData.find(m => m.id === a.manager_id);
-        const mgrName = mgr ? mgr.name : `ID: ${a.manager_id}`;
-        
-        return `
-        <tr>
+        const subCount = subAreasData.filter(s => s.area_id === a.id).length;
+        const pct = parseFloat(a.poverty_percent||0);
+        const barCls = pct >= 60 ? 'danger' : pct >= 35 ? 'warn' : 'success';
+        return `<tr>
             <td class="cell-id">#${a.id}</td>
             <td><strong>${escapeHtml(a.area_name)}</strong></td>
-            <td>${escapeHtml(a.district)}</td>
-            <td>${a.poverty_percent}%</td>
-            <td>${mgrName}</td>
+            <td class="cell-muted">${escapeHtml(a.district)}</td>
+            <td>
+                <div style="display:flex;align-items:center;gap:8px;min-width:110px">
+                    <div class="progress-bar" style="flex:1"><div class="progress-fill ${barCls}" style="width:${Math.min(100,pct)}%"></div></div>
+                    <span style="font-size:.78rem;font-weight:700;min-width:32px">${pct}%</span>
+                </div>
+            </td>
+            <td><strong>${escapeHtml(mgrMap[a.manager_id]||'Unassigned')}</strong></td>
+            <td><span class="badge badge-info">${subCount} sub-area${subCount!==1?'s':''}</span></td>
             <td class="cell-muted">${formatDate(a.created_at)}</td>
             <td>
                 <div class="actions">
-                    <button class="btn-icon" onclick='editArea(${JSON.stringify(a).replace(/'/g, "&#39;")})'>✏️</button>
-                    <button class="btn-icon danger" onclick="deleteArea(${a.id})">🗑️</button>
+                    <button class="btn-icon" title="Edit area" onclick='editArea(${JSON.stringify(a).replace(/'/g,"&#39;")})'>✏️</button>
+                    <button class="btn-icon danger" title="Delete area" onclick="deleteArea(${a.id},'${escapeHtml(a.area_name)}')">🗑️</button>
                 </div>
             </td>
-        </tr>
-    `}).join('');
+        </tr>`;
+    }).join('');
 }
 
 function openAreaModal() {
-    document.getElementById('modalTitle').textContent = 'Add Area';
+    document.getElementById('areaModalTitle').textContent = 'Add Area';
     document.getElementById('areaForm').reset();
     document.getElementById('areaId').value = '';
     document.getElementById('areaName').disabled = false;
@@ -149,69 +140,52 @@ function openAreaModal() {
 }
 
 function editArea(a) {
-    document.getElementById('modalTitle').textContent = 'Reassign Manager';
-    document.getElementById('areaId').value = a.id;
-    document.getElementById('areaName').value = a.area_name;
-    document.getElementById('areaDistrict').value = a.district;
-    document.getElementById('areaPoverty').value = a.poverty_percent;
-    document.getElementById('areaManager').value = a.manager_id;
-    
-    // In current API, we only support updating manager_id via PUT /areas
-    document.getElementById('areaName').disabled = true;
-    document.getElementById('areaDistrict').disabled = true;
-    document.getElementById('areaPoverty').disabled = true;
-    
+    document.getElementById('areaModalTitle').textContent = 'Edit Area';
+    document.getElementById('areaId').value         = a.id;
+    document.getElementById('areaName').value        = a.area_name;
+    document.getElementById('areaDistrict').value    = a.district;
+    document.getElementById('areaPoverty').value     = a.poverty_percent;
+    document.getElementById('areaManager').value     = a.manager_id;
+    document.getElementById('areaName').disabled     = false;
+    document.getElementById('areaDistrict').disabled = false;
+    document.getElementById('areaPoverty').disabled  = false;
     openModal('areaModal');
 }
 
 async function saveArea(e) {
     e.preventDefault();
-    const btn = document.getElementById('saveBtn');
-    btn.disabled = true;
-    btn.textContent = 'Confirming...';
-    
+    const btn = document.getElementById('saveAreaBtn');
+    btn.disabled = true; btn.textContent = 'Confirming...';
     try {
         const id = document.getElementById('areaId').value;
         const payload = {
-            manager_id: parseInt(document.getElementById('areaManager').value)
+            area_name:       document.getElementById('areaName').value.trim(),
+            district:        document.getElementById('areaDistrict').value.trim(),
+            poverty_percent: parseFloat(document.getElementById('areaPoverty').value),
+            manager_id:      parseInt(document.getElementById('areaManager').value)
         };
-        
         if (id) {
             payload.id = parseInt(id);
-            payload.area_name = "dummy"; // API expects full model even for partial update based on BaseModel
-            payload.district = "dummy";
-            payload.poverty_percent = 0;
-            
             await api('PUT', '/areas', payload);
-            showNotification('Area manager updated');
+            showNotification('Area updated successfully');
         } else {
-            payload.area_name = document.getElementById('areaName').value;
-            payload.district = document.getElementById('areaDistrict').value;
-            payload.poverty_percent = parseFloat(document.getElementById('areaPoverty').value);
             await api('POST', '/areas', payload);
-            showNotification('Area created');
+            showNotification('Area created successfully');
         }
-        
         closeModal('areaModal');
         loadAreas();
-    } catch (err) {
-        showNotification(err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Confirm';
-    }
+    } catch(err) { showNotification(err.message, 'error'); }
+    finally { btn.disabled=false; btn.textContent='Confirm'; }
 }
 
-async function deleteArea(id) {
-    if (await confirmAction('Are you sure you want to delete this area?')) {
-        try {
-            await api('DELETE', `/areas/${id}`);
-            showNotification('Area deleted');
-            loadAreas();
-        } catch (e) {
-            showNotification(e.message, 'error');
-        }
-    }
+async function deleteArea(id, name) {
+    const ok = await confirmAction(`Delete area "${name}"? All sub-areas and related data will be removed.`, 'Delete Area', 'Delete');
+    if (!ok) return;
+    try {
+        await api('DELETE', `/areas/${id}`);
+        showNotification('Area deleted');
+        loadAreas();
+    } catch(e) { showNotification(e.message, 'error'); }
 }
 </script>
 {% endblock %}

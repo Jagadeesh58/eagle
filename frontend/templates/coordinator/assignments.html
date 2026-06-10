@@ -2,80 +2,99 @@
 {% block title %}My Assignments{% endblock %}
 {% block page_title %}My Assignments{% endblock %}
 {% block content %}
+
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="Search family, sub area..."></div>
+        <div class="role-filters" id="statusFilters">
+            <button class="role-chip active" onclick="filterStatus('',this)">All</button>
+            <button class="role-chip" onclick="filterStatus('pending',this)">⏳ Pending</button>
+            <button class="role-chip" onclick="filterStatus('delivered',this)">📦 Delivered</button>
+            <button class="role-chip" onclick="filterStatus('completed',this)">✅ Completed</button>
+        </div>
+    </div>
+    <div id="assignStats" style="display:flex;gap:8px"></div>
+</div>
+
 <div class="table-container">
     <table class="data-table" id="myAssignTable">
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Beneficiary ID</th>
-                <th>Sub Area</th>
-                <th>Assigned Date</th>
-                <th>Status</th>
-                <th>Update Status</th>
-            </tr>
+            <tr><th>ID</th><th>Family Name</th><th>Sub Area</th><th>Assigned</th><th>Status</th><th>Update Status</th></tr>
         </thead>
-        <tbody>
-            <tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr>
-        </tbody>
+        <tbody><tr><td colspan="6" class="text-center"><div class="spinner"></div></td></tr></tbody>
     </table>
 </div>
-{% endblock %}
 
+{% endblock %}
 {% block scripts %}
 <script>
-let session;
-let assignData = [];
+let session, assignData=[], activeFilter='';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     session = getSession();
     if (!session) return;
+    setupTableSearch('searchInput','myAssignTable');
     loadAssignments();
 });
 
 async function loadAssignments() {
     try {
-        assignData = await api('GET', `/assignments/coordinator/${session.id}`).catch(() => []);
-        renderTable();
-    } catch (e) {
-        showNotification(e.message, 'error');
-    }
+        assignData = await api('GET',`/assignments/coordinator/${session.id}`).catch(()=>[]);
+        renderStats();
+        renderTable(assignData);
+    } catch(e) { showNotification(e.message,'error'); }
 }
 
-function renderTable() {
+function renderStats() {
+    document.getElementById('assignStats').innerHTML = `
+        <span class="badge badge-warning">${assignData.filter(a=>a.status==='pending').length} pending</span>
+        <span class="badge badge-info">${assignData.filter(a=>a.status==='delivered').length} delivered</span>
+        <span class="badge badge-success">${assignData.filter(a=>a.status==='completed').length} done</span>`;
+}
+
+function filterStatus(s, btn) {
+    activeFilter = s;
+    document.querySelectorAll('.role-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    renderTable(s ? assignData.filter(a=>a.status===s) : assignData);
+}
+
+function renderTable(data) {
     const tbody = document.querySelector('#myAssignTable tbody');
-    if (!assignData.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No assignments found.</td></tr>';
+    if (!data.length) {
+        tbody.innerHTML='<tr><td colspan="6" class="text-center" style="padding:40px;color:var(--text-3)"><div style="font-size:2rem;margin-bottom:8px">📝</div>No assignments found.</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = assignData.map(a => `
+    tbody.innerHTML = data.map(a=>`
         <tr>
             <td class="cell-id">#${a.id}</td>
-            <td><strong>#${a.beneficiary_id}</strong></td>
-            <td>SubArea #${a.sub_area_id}</td>
-            <td>${formatDate(a.assigned_date)}</td>
+            <td><strong>${escapeHtml(a.family_name||'Family #'+a.beneficiary_id)}</strong>
+                <div style="font-size:.75rem;color:var(--text-3)">${a.family_members ? a.family_members+' members' : ''}</div>
+            </td>
+            <td class="cell-muted">${escapeHtml(a.sub_area_name||'Sub Area #'+a.sub_area_id)}</td>
+            <td class="cell-muted">${formatDate(a.assigned_date)}</td>
             <td>${statusBadge(a.status)}</td>
             <td>
-                <select class="form-control" style="width: auto; padding: 4px 8px; height: auto;" onchange="updateStatus(${a.id}, this.value)">
-                    <option value="" disabled selected>Change...</option>
-                    <option value="pending">Pending</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="completed">Completed</option>
-                </select>
+                ${a.status==='completed'
+                    ? '<span class="cell-muted" style="font-size:.82rem">✓ Completed</span>'
+                    : `<select class="form-control" style="width:auto;padding:5px 28px 5px 10px;font-size:.8rem;" onchange="updateStatus(${a.id}, this.value, this)">
+                        <option value="" disabled selected>Change…</option>
+                        ${a.status==='pending' ? '<option value="delivered">📦 Mark Delivered</option>' : ''}
+                        ${a.status==='delivered' ? '<option value="completed">✅ Mark Completed</option>' : ''}
+                        <option value="pending">⏳ Reset to Pending</option>
+                       </select>`
+                }
             </td>
-        </tr>
-    `).join('');
+        </tr>`).join('');
 }
 
-async function updateStatus(id, status) {
+async function updateStatus(id, status, sel) {
     if (!status) return;
+    sel.disabled = true;
     try {
-        await api('PUT', `/assignments/${id}/status`, { status });
-        showNotification('Assignment status updated to ' + status);
+        await api('PUT',`/assignments/${id}/status`,{ status });
+        showNotification('Status updated to ' + status);
         loadAssignments();
-    } catch(e) {
-        showNotification(e.message, 'error');
-    }
+    } catch(e) { showNotification(e.message,'error'); sel.disabled=false; }
 }
 </script>
 {% endblock %}
