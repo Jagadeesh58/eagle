@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eagle-frontend
+  labels:
+    app: eagle-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eagle-frontend
+  template:
+    metadata:
+      labels:
+        app: eagle-frontend
+    spec:
+      containers:
+        - name: eagle-frontend
+          image: eagle-frontend:1.0
+          ports:
+            - containerPort: 9000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eagle-frontend-service
+spec:
+  selector:
+    app: eagle-frontend 
+  ports:
+    - protocol: TCP
+      port: 9001
+      targetPort: 8000
+  type: LoadBalancer

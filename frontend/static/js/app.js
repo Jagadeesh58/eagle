@@ -3,7 +3,9 @@
    Session, API, Notifications, Modals, Navigation
    ============================================================ */
 
-const API = 'http://localhost:8000/api';
+// API_BASE_URL is injected at container start time (see config.js / entrypoint.sh).
+// Falls back to localhost for local dev outside Kubernetes.
+const API = 'http://localhost:9000/api';
 
 // ── Cookie Helpers ───────────────────────────────────────────
 function setCookie(name, value, days = 7) {

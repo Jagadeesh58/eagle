@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eagle-backend
+  labels:
+    app: eagle-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eagle-backend
+  template:
+    metadata:
+      labels:
+        app: eagle-backend
+    spec:
+      containers:
+        - name: eagle-backend
+          image: eagle-backend:1.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: FLASK_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eagle-backend-service
+spec:
+  selector:
+    app: eagle-backend
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 8000
+  type: LoadBalancer
